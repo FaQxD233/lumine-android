@@ -1,0 +1,335 @@
+package lumine
+
+import (
+	"bufio"
+	"encoding/binary"
+	"errors"
+	"io"
+	"net"
+	"net/http"
+	"strconv"
+	"sync"
+
+	"github.com/moi-si/lumine/internal/dial"
+	F "github.com/moi-si/lumine/internal/format"
+	log "github.com/moi-si/mylog"
+)
+
+const (
+	tlsAlertLevelFatal      byte = 2
+	tlsAlertAccessDenied    byte = 70
+	tlsAlertProtocolVersion byte = 49
+)
+
+func handleTunnel(
+	p *Policy, dstConn, cliConn net.Conn, logger *log.Logger,
+	oldTarget, target, originHost, originPort string,
+) {
+	var (
+		err       error
+		once      sync.Once
+		cliReader io.Reader
+	)
+	closeBoth := func() {
+		if err := cliConn.Close(); err == nil {
+			logger.Debug("Closed client conn")
+		} else {
+			logger.Debug("Close client conn:", err)
+		}
+		if dstConn != nil {
+			if err := dstConn.Close(); err == nil {
+				logger.Debug("Closed dest conn")
+			} else {
+				logger.Debug("Close dest conn:", err)
+			}
+		}
+	}
+	defer once.Do(closeBoth)
+
+	if p.Mode == ModeRaw {
+		if dstConn == nil {
+			dstConn, err = dial.DialTCPTimeout(target, p.ConnectTimeout)
+			if err != nil {
+				logger.Error("Connection to", oldTarget, "failed:", err)
+				return
+			}
+		}
+		cliReader = cliConn
+	} else {
+		br := bufio.NewReader(cliConn)
+		peekBytes, err := br.Peek(10)
+		if err != nil {
+			if len(peekBytes) == 0 && errors.Is(err, io.EOF) {
+				logger.Error("Empty tunnel")
+			} else {
+				logger.Error("Read first packet:", err)
+			}
+			return
+		}
+
+		// Require the second byte to be 0x03 to avoid handling custom TLS
+		// variants like mmtls.
+		if peekBytes[0] == tlsRecordTypeHandshake && peekBytes[1] == tlsMajorVersion {
+			payloadLen := 5 + int(binary.BigEndian.Uint16(peekBytes[3:5]))
+			var ok bool
+			if dstConn, ok = handleTLS(logger, payloadLen,
+				p, originHost, oldTarget, target, originPort,
+				br, cliConn, dstConn); !ok {
+				return
+			}
+		} else if bytesHasPrefix(peekBytes,
+			"GET ", "POST ", "HEAD ", "PUT ", "DELETE ",
+			"OPTIONS ", "TRACE ", "PATCH ",
+		) {
+			req, err := http.ReadRequest(br)
+			if err == nil {
+				var ok bool
+				if dstConn, ok = handleHTTP(logger, req,
+					p, originHost, oldTarget, target,
+					cliConn, dstConn); !ok {
+					return
+				}
+			} else {
+				logger.Error("Trying parsing HTTP:", err)
+			}
+		} else {
+			logger.Info("Unknown protocol")
+		}
+		cliReader = br
+	}
+
+	logger.Info("Start forwarding")
+	srcConnTCP, dstConnTCP := cliConn.(*net.TCPConn), dstConn.(*net.TCPConn)
+	done := make(chan struct{})
+	go func() {
+		if _, err := io.Copy(dstConnTCP, cliReader); err == nil {
+			if err = dstConnTCP.CloseWrite(); err == nil {
+				logger.Debug("Closed dest write")
+			} else {
+				logger.Debug("Close dest write:", err)
+				once.Do(closeBoth)
+			}
+		} else if !errors.Is(err, net.ErrClosed) {
+			logger.Error("Forward", originHost+"->"+cliConn.RemoteAddr().String()+":", err)
+			once.Do(closeBoth)
+		}
+		close(done)
+	}()
+	if _, err := io.Copy(srcConnTCP, dstConnTCP); err == nil {
+		if err = srcConnTCP.CloseWrite(); err == nil {
+			logger.Debug("Closed client write")
+		} else {
+			logger.Debug("Close client write:", err)
+			once.Do(closeBoth)
+		}
+	} else if !errors.Is(err, net.ErrClosed) {
+		logger.Error("Forward", cliConn.RemoteAddr().String()+"->"+originHost+":", err)
+		once.Do(closeBoth)
+	}
+	<-done
+}
+
+func handleHTTP(
+	logger *log.Logger, req *http.Request,
+	p *Policy, originHost, oldTarget, target string,
+	cliConn, dstConn net.Conn) (newConn net.Conn, ok bool) {
+	var err error
+	defer func() {
+		if err := req.Body.Close(); err != nil {
+			logger.Debug("Close HTTP body: ", err)
+		}
+	}()
+
+	host := req.Host
+	if host == "" {
+		host = req.URL.Host
+		if host == "" {
+			host = originHost
+		}
+	}
+	logger.Info("host="+host, "method="+req.Method, "url="+req.URL.String())
+
+	if p.HttpStatus == 0 || p.HttpStatus == -1 {
+		if dstConn == nil {
+			dstConn, err = dial.DialTCPTimeout(target, p.ConnectTimeout)
+			if err != nil {
+				logger.Error("Connection to", oldTarget, "failed:", err)
+				resp := &http.Response{
+					Status:        "502 Bad Gateway",
+					StatusCode:    502,
+					Proto:         req.Proto,
+					ProtoMajor:    1,
+					ProtoMinor:    1,
+					Header:        make(http.Header),
+					ContentLength: 0,
+					Close:         true,
+				}
+				if err = resp.Write(cliConn); err != nil {
+					logger.Debug("Failed to send 502:", err)
+				}
+				return
+			}
+		}
+		if err := req.Write(dstConn); err != nil {
+			logger.Error("Forward HTTP request:", err)
+			return
+		}
+	} else {
+		statusLine := strconv.Itoa(p.HttpStatus) + " " + http.StatusText(p.HttpStatus)
+		resp := &http.Response{
+			Status:        statusLine,
+			StatusCode:    p.HttpStatus,
+			Proto:         req.Proto,
+			ProtoMajor:    1,
+			ProtoMinor:    1,
+			Header:        make(http.Header),
+			ContentLength: 0,
+			Close:         true,
+		}
+		if p.HttpStatus == 301 || p.HttpStatus == 302 {
+			resp.Header.Set("Location", "https://"+host+req.URL.RequestURI())
+		}
+		if err = resp.Write(cliConn); err != nil {
+			logger.Error("Send", p.HttpStatus, err)
+		} else {
+			logger.Info("Sent", statusLine)
+		}
+		return
+	}
+	return dstConn, true
+}
+
+func handleTLS(logger *log.Logger, recordLen int,
+	p *Policy, originHost, oldTarget, target, originPort string,
+	br *bufio.Reader, cliConn, dstConn net.Conn) (newConn net.Conn, ok bool) {
+	record := make([]byte, recordLen)
+	if _, err := io.ReadFull(br, record); err != nil {
+		logger.Error("Read first record:", err)
+		return
+	}
+	prtVer, sniStart, sniLen, hasKeyShare, hasECH, err := parseClientHello(record)
+	if err != nil {
+		logger.Error("Parse record:", err)
+		return
+	}
+	if p.Mode == ModeTLSAlert {
+		sendTLSAlert(logger, cliConn, prtVer, tlsAlertAccessDenied, tlsAlertLevelFatal)
+		return
+	}
+	if p.TLS13Only.IsTrue() && !hasKeyShare {
+		logger.Info("Connection blocked: key_share missing from ClientHello")
+		sendTLSAlert(logger, cliConn, prtVer, tlsAlertProtocolVersion, tlsAlertLevelFatal)
+		return
+	}
+	if sniStart <= 0 || sniLen <= 0 {
+		logger.Info("SNI not found")
+		if dstConn == nil {
+			dstConn, err = dial.DialTCPTimeout(target, p.ConnectTimeout)
+			if err != nil {
+				logger.Error("Connection to", oldTarget, "failed:", err)
+				return
+			}
+		}
+		if _, err = dstConn.Write(record); err != nil {
+			logger.Error("Send ClientHello directly:", err)
+			return
+		}
+		logger.Info("Sent ClientHello directly")
+	} else {
+		sniStr := string(record[sniStart : sniStart+sniLen])
+		if originHost != sniStr {
+			logger.Info("Mismatched SNI:", sniStr)
+			switch p.SniffOverrideMode {
+			case SniffOverrideAlways, SniffOverridePolicyExists:
+				if hasECH {
+					logger.Info("Detected ECH in ClientHello; skipping sniff override")
+					break
+				}
+				returnWhenDomainNotFound := p.SniffOverrideMode == SniffOverridePolicyExists
+				newDst, sniPolicy, failed, blocked, policyNotExists := genPolicy(logger, sniStr, false, returnWhenDomainNotFound)
+				if failed {
+					logger.Error("Failed to generate SNI policy; falling back to origin")
+				} else if policyNotExists {
+					logger.Info("SNI policy not found; falling back to origin")
+				} else {
+					sniPolicyExists := sniPolicy != nil
+					if blocked || (sniPolicyExists && sniPolicy.Mode == ModeBlock) {
+						logger.Info("Connection blocked")
+						return
+					}
+					if sniPolicy.Mode == ModeTLSAlert {
+						logger.Info("Connection blocked (TLS alert)")
+						sendTLSAlert(logger, cliConn, prtVer, tlsAlertAccessDenied, tlsAlertLevelFatal)
+						return
+					}
+					logger.Info("New policy:", sniPolicy)
+					if sniPolicy.Port != 0 && sniPolicy.Port != -1 {
+						originPort = F.Int(sniPolicy.Port)
+					}
+					newTarget := net.JoinHostPort(newDst, originPort)
+					newConn, err := dial.DialTCPTimeout(newTarget, sniPolicy.ConnectTimeout)
+					if err == nil {
+						if dstConn != nil {
+							dstConn.Close()
+						}
+						dstConn = newConn
+						p = sniPolicy
+						target = newTarget
+						logger.Info("Target has been changed to", sniStr)
+					} else {
+						logger.Error(F.Concat("Connection to ", newTarget, " failed: ", err, "; falling back to origin"))
+					}
+				}
+			}
+		}
+
+		if dstConn == nil {
+			dstConn, err = dial.DialTCPTimeout(target, p.ConnectTimeout)
+			if err != nil {
+				logger.Error("Connection to", oldTarget, "failed:", err)
+				return
+			}
+		}
+		switch p.Mode {
+		case ModeDirect, ModeRaw:
+			if _, err = dstConn.Write(record); err != nil {
+				logger.Error("Send ClientHello:", err)
+				return
+			}
+			logger.Info("Sent ClientHello directly")
+		case ModeTLSRF:
+			err = sendRecords(dstConn, record, sniStart, sniLen,
+				p.NumRecords, p.NumSegments,
+				p.OOB.IsTrue(), p.OOBEx.IsTrue(),
+				p.ModMinorVer.IsTrue(), p.WaitForAck.IsTrue(), p.SendInterval)
+			if err != nil {
+				logger.Error("TLS fragment:", err)
+				return
+			}
+			logger.Info("Sent ClientHello in fragments")
+		case ModeTTLD:
+			ipv6 := target[0] == '['
+			ttl, err := getFakeTTL(logger, p, target, ipv6)
+			if err != nil {
+				logger.Error("Get fake TTL:", err)
+				return
+			}
+			if err = desyncSend(
+				dstConn, ipv6, record,
+				sniStart, sniLen, ttl, p.FakeSleep,
+			); err != nil {
+				logger.Error("TTL desync:", err)
+				return
+			}
+			logger.Info("Sent ClientHello with fake packet")
+		}
+	}
+	return dstConn, true
+}
+
+func sendTLSAlert(logger *log.Logger, conn net.Conn, prtVer []byte, desc byte, level byte) {
+	_, err := conn.Write([]byte{0x15, prtVer[0], prtVer[1], 0x00, 0x02, level, desc})
+	if err != nil {
+		logger.Error("Send TLS alert:", err)
+	}
+}

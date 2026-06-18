@@ -41,3 +41,8 @@ android/app/build/
 android/app/libs/*.aar
 android/app/libs/*-sources.jar
 local.properties
+
+# Local signing material. Never commit these.
+signing/
+*.keystore
+*.jks

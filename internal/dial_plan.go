@@ -63,8 +63,20 @@ func PlanRequest(req RequestContext, logger *log.Logger) (DialPlan, error) {
 		return DialPlan{}, errors.New("request host is empty")
 	}
 
+	originHost := req.Host
 	isIP := net.ParseIP(req.Host) != nil
-	dstHost, policy, failed, blocked, _ := genPolicy(logger, req.Host, isIP, false)
+	policyHost := req.Host
+	policyIsIP := isIP
+	recoveredDomain := ""
+	if req.Source == RequestSourceMobile && isIP {
+		if domain, ok := lookupMobileDNSMapping(req.Host); ok {
+			recoveredDomain = domain
+			policyHost = domain
+			policyIsIP = false
+		}
+	}
+
+	dstHost, policy, failed, blocked, _ := genPolicy(logger, policyHost, policyIsIP, false)
 	if failed {
 		return DialPlan{}, errors.New("failed to resolve dial plan")
 	}
@@ -78,14 +90,15 @@ func PlanRequest(req RequestContext, logger *log.Logger) (DialPlan, error) {
 	}
 
 	return DialPlan{
-		Source:        req.Source,
-		OriginHost:    req.Host,
-		OriginPort:    req.Port,
-		MatchedDomain: !isIP,
-		MatchedIP:     isIP,
-		TargetHost:    dstHost,
-		TargetPort:    targetPort,
-		Policy:        *policy,
-		Blocked:       blocked,
+		Source:          req.Source,
+		OriginHost:      originHost,
+		OriginPort:      req.Port,
+		RecoveredDomain: recoveredDomain,
+		MatchedDomain:   !policyIsIP,
+		MatchedIP:       isIP,
+		TargetHost:      dstHost,
+		TargetPort:      targetPort,
+		Policy:          *policy,
+		Blocked:         blocked,
 	}, nil
 }

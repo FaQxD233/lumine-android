@@ -164,7 +164,7 @@ func (c *tunPolicyConn) handleTLSRecordLocked(record []byte) error {
 			p.ModMinorVer.IsTrue(), p.WaitForAck.IsTrue(),
 			p.SendInterval)
 	case ModeTTLD:
-		ipv6 := len(c.plan.TargetHost) > 0 && c.plan.TargetHost[0] == '['
+		ipv6 := isIPv6(c.plan.TargetHost)
 		ttl := p.FakeTTL
 		if ttl == 0 || ttl == unsetInt {
 			ttl, err = getFakeTTL(c.logger, &p, c.plan.TargetHost, ipv6)

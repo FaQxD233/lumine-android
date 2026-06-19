@@ -109,7 +109,11 @@ fun RuleListScreen(navController: NavController, viewModel: ConfigViewModel) {
                         color = MaterialTheme.colorScheme.primary
                     )
                 }
-                items(items = domainRules, key = { it }) { key ->
+                items(
+                    count = domainRules.size,
+                    key = { index -> "domain:$index:${domainRules[index].hashCode()}" }
+                ) { index ->
+                    val key = domainRules[index]
                     RuleItem(key, "domain") {
                         viewModel.setEditingRule(key)
                         navController.navigate(Screen.RuleDetail.createRoute("domain"))
@@ -124,7 +128,11 @@ fun RuleListScreen(navController: NavController, viewModel: ConfigViewModel) {
                         color = MaterialTheme.colorScheme.primary
                     )
                 }
-                items(items = ipRules, key = { it }) { key ->
+                items(
+                    count = ipRules.size,
+                    key = { index -> "ip:$index:${ipRules[index].hashCode()}" }
+                ) { index ->
+                    val key = ipRules[index]
                     RuleItem(key, "ip") {
                         viewModel.setEditingRule(key)
                         navController.navigate(Screen.RuleDetail.createRoute("ip"))
@@ -214,8 +222,8 @@ private fun RuleTypeOption(label: String, selected: Boolean, onClick: () -> Unit
 @Composable
 fun RuleItem(key: String, type: String, onClick: () -> Unit) {
     androidx.compose.material3.ListItem(
-        headlineContent = { Text(key, maxLines = 1) },
-        supportingContent = { Text(if (type == "domain") "Domain Pattern" else "IP CIDR") },
+        headlineContent = { Text(shortRulePreview(key), maxLines = 1) },
+        supportingContent = { Text(ruleSummary(key, type)) },
         modifier = Modifier.clickable { onClick() }
     )
     HorizontalDivider(
@@ -223,4 +231,22 @@ fun RuleItem(key: String, type: String, onClick: () -> Unit) {
         thickness = 0.5.dp,
         color = MaterialTheme.colorScheme.outlineVariant
     )
+}
+
+private fun shortRulePreview(key: String, limit: Int = 160): String {
+    return if (key.length <= limit) {
+        key
+    } else {
+        key.take(limit) + "..."
+    }
+}
+
+private fun ruleSummary(key: String, type: String): String {
+    val kind = if (type == "domain") "Domain Pattern" else "IP CIDR"
+    val itemCount = key.count { it == ';' } + 1
+    return if (itemCount > 1) {
+        "$kind · $itemCount entries"
+    } else {
+        kind
+    }
 }

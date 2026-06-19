@@ -61,7 +61,7 @@ android {
     }
 
     defaultConfig {
-        applicationId "com.moi.lumine"
+        applicationId "com.lumine.app"
         minSdk 24
         targetSdk 36
         versionCode versionCodeValue

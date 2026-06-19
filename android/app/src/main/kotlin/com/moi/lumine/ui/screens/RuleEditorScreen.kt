@@ -94,7 +94,7 @@ fun RuleEditorScreen(navController: NavController, viewModel: ConfigViewModel, t
         ) {
             item {
                 Text("规则路径", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-                Text(ruleKey, style = MaterialTheme.typography.bodyLarge)
+                Text(shortRuleKeyForEditor(ruleKey), style = MaterialTheme.typography.bodyLarge)
                 Spacer(modifier = Modifier.height(24.dp))
             }
 
@@ -135,5 +135,13 @@ fun RuleEditorScreen(navController: NavController, viewModel: ConfigViewModel, t
                 }
             }
         }
+    }
+}
+
+private fun shortRuleKeyForEditor(key: String, limit: Int = 600): String {
+    return if (key.length <= limit) {
+        key
+    } else {
+        key.take(limit) + "\n... (${key.length} chars)"
     }
 }

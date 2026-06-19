@@ -1,6 +1,7 @@
 package lumine
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -49,6 +50,8 @@ type IPPool struct {
 	scanMu  sync.Mutex
 	sem     chan struct{}
 	counter uint32
+
+	cancel context.CancelFunc
 }
 
 func (p *IPPool) UnmarshalJSON(b []byte) error {
@@ -185,8 +188,17 @@ func (p *IPPool) Init(logger *log.Logger) error {
 		return errors.New("no valid IP found after initial scan")
 	}
 
-	go p.monitor()
+	ctx, cancel := context.WithCancel(context.Background())
+	p.cancel = cancel
+	go p.monitor(ctx)
 	return nil
+}
+
+// Stop terminates the background monitor goroutine.
+func (p *IPPool) Stop() {
+	if p.cancel != nil {
+		p.cancel()
+	}
 }
 
 func (p *IPPool) scan() {
@@ -306,12 +318,17 @@ func (p *IPPool) updateBest(results []ipResult) {
 	p.totalWeight = totalWeight
 }
 
-func (p *IPPool) monitor() {
+func (p *IPPool) monitor(ctx context.Context) {
 	ticker := time.NewTicker(p.updateInterval)
 	defer ticker.Stop()
 
-	for range ticker.C {
-		p.scan()
+	for {
+		select {
+		case <-ticker.C:
+			p.scan()
+		case <-ctx.Done():
+			return
+		}
 	}
 }
 
@@ -352,4 +369,11 @@ func getFromIPPool(tag string) (ipStr string, err error) {
 		return "", errors.New("cannot get ip from " + tag)
 	}
 	return ip, nil
+}
+
+// StopIPPoolMonitors stops all IP pool background monitor goroutines.
+func StopIPPoolMonitors() {
+	for _, pool := range ipPools {
+		pool.Stop()
+	}
 }

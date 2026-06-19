@@ -316,7 +316,11 @@ func ipRedirect(logger *log.Logger, ip string) (string, *Policy, error) {
 }
 
 func getTCPRawConn(conn net.Conn) (syscall.RawConn, error) {
-	rawConn, err := conn.(*net.TCPConn).SyscallConn()
+	tcpConn, ok := conn.(*net.TCPConn)
+	if !ok {
+		return nil, E.New("connection is not *net.TCPConn")
+	}
+	rawConn, err := tcpConn.SyscallConn()
 	if err != nil {
 		return nil, E.WithStr("get raw conn", err)
 	}
@@ -325,7 +329,7 @@ func getTCPRawConn(conn net.Conn) (syscall.RawConn, error) {
 
 func bytesHasPrefix(b []byte, prefixes ...string) bool {
 	for _, prefix := range prefixes {
-		if string(b[:len(prefix)]) == prefix {
+		if len(b) >= len(prefix) && string(b[:len(prefix)]) == prefix {
 			return true
 		}
 	}

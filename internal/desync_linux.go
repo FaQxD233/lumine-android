@@ -52,7 +52,8 @@ func detectMinimalReachableTTL(
 				ok = true
 				break
 			}
-			if netErr := err.(*net.OpError); !netErr.Timeout() {
+			netErr, ok := err.(*net.OpError)
+			if !ok || !netErr.Timeout() {
 				return unsetInt, E.WithStr("dial "+F.Int(mid), err)
 			}
 		}
@@ -100,6 +101,9 @@ func sendWithNoise(
 	if err != nil {
 		return E.WithStr("set fake TTL", err)
 	}
+	if len(data) == 0 {
+		return E.New("mmap returned empty buffer")
+	}
 	iov := unix.Iovec{
 		Base: &data[0],
 		Len:  itou(len(fakeData)),
@@ -122,6 +126,10 @@ func sendWithNoise(
 						continue
 					}
 					return innerErr != unix.EAGAIN
+				}
+				if n == 0 {
+					innerErr = unix.EIO
+					return true
 				}
 				toWrite -= int(n)
 			}

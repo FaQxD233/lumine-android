@@ -128,8 +128,11 @@ func StopLumine() {
 		return
 	}
 
-	_ = engine.StopErr()
+	if err := engine.StopErr(); err != nil {
+		mainLogger.Error("Engine stop error:", err)
+	}
 	engine.ClearCustomProxy()
+	lumine.StopIPPoolMonitors()
 	isRunning = false
 	lumine.SetLogWriter(nil)
 }

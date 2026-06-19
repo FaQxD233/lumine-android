@@ -194,7 +194,11 @@ func LoadConfig(filePath string) (string, string, error) {
 				return dialer.Dial(network, addr)
 			}
 		}
-		transport := http.DefaultTransport.(*http.Transport).Clone()
+		transport, ok := http.DefaultTransport.(*http.Transport)
+		if !ok {
+			return "", "", E.New("DefaultTransport is not *http.Transport")
+		}
+		transport = transport.Clone()
 		transport.DialContext = dialContext
 		httpCli = &http.Client{Transport: transport}
 		dnsExchange = dohExchange

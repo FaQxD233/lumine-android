@@ -10,17 +10,25 @@ import (
 	log "github.com/moi-si/mylog"
 )
 
-var coreLogWriter io.Writer
+var (
+	coreLogWriter   io.Writer
+	coreLogWriterMu sync.RWMutex
+)
 
 func SetLogWriter(w io.Writer) {
+	coreLogWriterMu.Lock()
+	defer coreLogWriterMu.Unlock()
 	coreLogWriter = w
 }
 
 func NewSessionLogger(prefix string) *log.Logger {
-	if coreLogWriter == nil {
+	coreLogWriterMu.RLock()
+	w := coreLogWriter
+	coreLogWriterMu.RUnlock()
+	if w == nil {
 		return log.New(io.Discard, prefix, log.LstdFlags, logLevel)
 	}
-	return log.New(coreLogWriter, prefix, log.LstdFlags, logLevel)
+	return log.New(w, prefix, log.LstdFlags, logLevel)
 }
 
 func DefaultDialTimeout(p Policy) time.Duration {
@@ -80,7 +88,7 @@ func (c *tunPolicyConn) tryHandlePendingLocked() bool {
 	}
 
 	recordLen := tlsRecordHeaderLen + int(binary.BigEndian.Uint16(c.pending[3:5]))
-	if len(c.pending) < recordLen {
+	if recordLen < tlsRecordHeaderLen || len(c.pending) < recordLen {
 		return false
 	}
 

@@ -208,7 +208,11 @@ func dnsResolve(domain string, dnsMode DNSMode) (ip string, cached bool, err err
 			return doDNSResolve(domain, dnsMode)
 		})
 		if err == nil {
-			ip = v.(string)
+			var ok bool
+			ip, ok = v.(string)
+			if !ok {
+				err = errors.New("dns singleflight returned unexpected type")
+			}
 		}
 	}
 

@@ -99,7 +99,13 @@ func handleTunnel(
 	}
 
 	logger.Info("Start forwarding")
-	srcConnTCP, dstConnTCP := cliConn.(*net.TCPConn), dstConn.(*net.TCPConn)
+	srcConnTCP, ok1 := cliConn.(*net.TCPConn)
+	dstConnTCP, ok2 := dstConn.(*net.TCPConn)
+	if !ok1 || !ok2 || dstConnTCP == nil {
+		logger.Error("Connection type assertion failed: src=", ok1, "dst=", ok2)
+		once.Do(closeBoth)
+		return
+	}
 	done := make(chan struct{})
 	go func() {
 		if _, err := io.Copy(dstConnTCP, cliReader); err == nil {

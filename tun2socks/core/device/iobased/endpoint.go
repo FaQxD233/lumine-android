@@ -143,7 +143,9 @@ func (e *Endpoint) writePacket(pkt *stack.PacketBuffer) tcpip.Error {
 	defer buf.Release()
 	if e.offset != 0 {
 		v := buffer.NewViewWithData(make([]byte, e.offset))
-		_ = buf.Prepend(v)
+		if err := buf.Prepend(v); err != nil {
+			return &tcpip.ErrInvalidEndpointState{}
+		}
 	}
 
 	if _, err := e.rw.Write(buf.Flatten()); err != nil {

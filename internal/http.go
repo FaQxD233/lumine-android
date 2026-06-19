@@ -210,7 +210,7 @@ func forwardHTTPRequest(logger *log.Logger, w http.ResponseWriter, originReq *ht
 		dstPort = F.Int(p.Port)
 	}
 
-	outReq := originReq.Clone(context.Background())
+	outReq := originReq.Clone(originReq.Context())
 
 	targetAddr := net.JoinHostPort(dstHost, dstPort)
 	outReq.URL.Host = targetAddr
@@ -226,7 +226,13 @@ func forwardHTTPRequest(logger *log.Logger, w http.ResponseWriter, originReq *ht
 		outReq.Header.Set("Connection", "close")
 	}
 
-	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport, ok := http.DefaultTransport.(*http.Transport)
+	if !ok {
+		logger.Error("DefaultTransport is not *http.Transport")
+		http.Error(w, status500, http.StatusInternalServerError)
+		return
+	}
+	transport = transport.Clone()
 
 	if p.ConnectTimeout > 0 {
 		transport.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {

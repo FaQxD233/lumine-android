@@ -1,6 +1,10 @@
 package lumine
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/moi-si/addrtrie"
+)
 
 func TestMergePoliciesAppliesRuntimeDefaults(t *testing.T) {
 	merged := mergePolicies(&Policy{Mode: ModeTTLD}, &Policy{})
@@ -25,5 +29,22 @@ func TestMergePoliciesAppliesRuntimeDefaults(t *testing.T) {
 	}
 	if merged.SingleTimeout != defaultTTLDSingleTimeout {
 		t.Fatalf("single timeout = %v, want %v", merged.SingleTimeout, defaultTTLDSingleTimeout)
+	}
+}
+
+func TestResolveDoHPolicyHostKeepsOriginalWithoutRedirect(t *testing.T) {
+	oldHostsMatcher := hostsMatcher
+	hostsMatcher = addrtrie.NewDomainMatcher[string]()
+	t.Cleanup(func() {
+		hostsMatcher = oldHostsMatcher
+	})
+
+	policy := normalizePolicyDefaults(Policy{})
+	host, err := resolveDoHPolicyHost("dns.google", &policy)
+	if err != nil {
+		t.Fatalf("resolve DoH policy host: %v", err)
+	}
+	if host != "dns.google" {
+		t.Fatalf("DoH host = %q, want original host", host)
 	}
 }

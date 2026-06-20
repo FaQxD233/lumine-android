@@ -608,33 +608,8 @@ func genDoHDialFunc() (func(ctx context.Context, network, address string) (net.C
 		} else {
 			dohConnPolicy = &defaultPolicy
 		}
-		noRedirect := strings.HasPrefix(dohConnPolicy.Host, noRedirectPrefix)
-		policyHost := dohConnPolicy.Host
-		if noRedirect {
-			policyHost = policyHost[1:]
-		}
-		var selectedHost string
-		if policyHost == "" || policyHost == unsetString {
-			var foundInHosts bool
-			selectedHost, foundInHosts = hostsMatcher.Find(host)
-			if foundInHosts {
-				noRedirect = strings.HasPrefix(selectedHost, noRedirectPrefix)
-				if noRedirect {
-					selectedHost = selectedHost[1:]
-				}
-			}
-		} else {
-			selectedHost = policyHost
-		}
-		switch {
-		case selectedHost == "self":
-		case strings.HasPrefix(selectedHost, ipPoolTagPrefix):
-			if host, err = getFromIPPool(selectedHost[1:]); err != nil {
-				return nil, err
-			}
-		case strings.HasPrefix(selectedHost, resolvePrefix):
-		default:
-			host = selectedHost
+		if host, err = resolveDoHPolicyHost(host, dohConnPolicy); err != nil {
+			return nil, err
 		}
 	}
 	switch dohConnPolicy.Mode {
@@ -656,6 +631,33 @@ func genDoHDialFunc() (func(ctx context.Context, network, address string) (net.C
 		}
 		return nil, err
 	}, nil
+}
+
+func resolveDoHPolicyHost(host string, policy *Policy) (string, error) {
+	policyHost := policy.Host
+	if strings.HasPrefix(policyHost, noRedirectPrefix) {
+		policyHost = policyHost[1:]
+	}
+	var selectedHost string
+	if policyHost == "" || policyHost == unsetString {
+		var foundInHosts bool
+		selectedHost, foundInHosts = hostsMatcher.Find(host)
+		if foundInHosts && strings.HasPrefix(selectedHost, noRedirectPrefix) {
+			selectedHost = selectedHost[1:]
+		}
+	} else {
+		selectedHost = policyHost
+	}
+	switch {
+	case selectedHost == "", selectedHost == unsetString, selectedHost == "self":
+		return host, nil
+	case strings.HasPrefix(selectedHost, ipPoolTagPrefix):
+		return getFromIPPool(selectedHost[1:])
+	case strings.HasPrefix(selectedHost, resolvePrefix):
+		return host, nil
+	default:
+		return selectedHost, nil
+	}
 }
 
 func genPolicy(logger *log.Logger, originHost string, isIP, returnWhenDomainNotFound bool) (dstHost string, p *Policy, failed, blocked, domainNotFound bool) {

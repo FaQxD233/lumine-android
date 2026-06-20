@@ -114,9 +114,12 @@ ext.abiCodes = [ "armeabi-v7a": 1, "arm64-v8a": 2, "x86": 3, "x86_64": 4 ]
 import com.android.build.OutputFile
 android.applicationVariants.all { variant ->
     variant.outputs.each { output ->
-        def abiVersionCode = project.ext.abiCodes.get(output.getFilter(OutputFile.ABI))
+        def abiFilter = output.getFilter(OutputFile.ABI)
+        def abiVersionCode = project.ext.abiCodes.get(abiFilter)
         if (abiVersionCode != null) {
             output.versionCodeOverride = variant.versionCode * 10 + abiVersionCode
+        } else if (abiFilter == null) {
+            output.versionCodeOverride = variant.versionCode * 10 + 9
         }
     }
 }

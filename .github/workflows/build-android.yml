@@ -101,13 +101,13 @@ jobs:
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           chmod +x ./gradlew
-          ./gradlew --no-daemon assembleDebug assembleRelease
+          ./gradlew --no-daemon assembleRelease
 
       - name: Collect APKs
         shell: bash
         run: |
           mkdir -p dist
-          find android/app/build/outputs/apk -type f -name '*.apk' -print -exec cp {} dist/ \;
+          find android/app/build/outputs/apk/release -type f -name '*.apk' -print -exec cp {} dist/ \;
           ls -lah dist
 
       - name: Upload APK artifacts

@@ -11,6 +11,12 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -134,7 +140,11 @@ fun MainContainer() {
         NavHost(
             navController = navController,
             startDestination = Screen.Home.route,
-            modifier = Modifier.padding(innerPadding)
+            modifier = Modifier.padding(innerPadding),
+            enterTransition = { drawerEnterFromRight() },
+            exitTransition = { drawerExitToLeft() },
+            popEnterTransition = { drawerEnterFromLeft() },
+            popExitTransition = { drawerExitToRight() }
         ) {
             composable(Screen.Home.route) {
                 HomeScreen(
@@ -161,6 +171,48 @@ fun MainContainer() {
             composable(Screen.Stats.route) { StatsScreen(navController, viewModel) }
         }
     }
+}
+
+private const val NAV_DRAWER_ANIMATION_MS = 260
+
+private fun drawerEnterFromRight(): EnterTransition {
+    return slideInHorizontally(
+        animationSpec = tween(
+            durationMillis = NAV_DRAWER_ANIMATION_MS,
+            easing = FastOutSlowInEasing
+        ),
+        initialOffsetX = { width -> width }
+    )
+}
+
+private fun drawerExitToLeft(): ExitTransition {
+    return slideOutHorizontally(
+        animationSpec = tween(
+            durationMillis = NAV_DRAWER_ANIMATION_MS,
+            easing = FastOutSlowInEasing
+        ),
+        targetOffsetX = { width -> -width / 4 }
+    )
+}
+
+private fun drawerEnterFromLeft(): EnterTransition {
+    return slideInHorizontally(
+        animationSpec = tween(
+            durationMillis = NAV_DRAWER_ANIMATION_MS,
+            easing = FastOutSlowInEasing
+        ),
+        initialOffsetX = { width -> -width / 4 }
+    )
+}
+
+private fun drawerExitToRight(): ExitTransition {
+    return slideOutHorizontally(
+        animationSpec = tween(
+            durationMillis = NAV_DRAWER_ANIMATION_MS,
+            easing = FastOutSlowInEasing
+        ),
+        targetOffsetX = { width -> width }
+    )
 }
 
 

@@ -138,7 +138,7 @@ fun GlobalSettingsScreen(navController: NavController, viewModel: ConfigViewMode
             Spacer(modifier = Modifier.height(24.dp))
 
             Text("日志级别", style = MaterialTheme.typography.labelLarge)
-            val levels = listOf("DEBUG", "INFO", "WARN", "ERROR")
+            val levels = listOf("DEBUG", "INFO", "ERROR")
             levels.forEach { level ->
                 Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                     RadioButton(selected = (logLevel == level), onClick = { logLevel = level })

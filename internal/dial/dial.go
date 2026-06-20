@@ -6,6 +6,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -16,6 +17,8 @@ import (
 var (
 	globalIPv4Dialer atomic.Pointer[net.Dialer]
 	globalIPv6Dialer atomic.Pointer[net.Dialer]
+	monitorMu        sync.Mutex
+	monitorCancel    context.CancelFunc
 )
 
 func DialContext(ctx context.Context, network, address string) (net.Conn, error) {
@@ -38,10 +41,15 @@ func DialTCPTimeout(address string, timeout time.Duration) (net.Conn, error) {
 	return DialTimeout(context.Background(), "tcp", address, timeout)
 }
 
-func laddrMonitor(interval time.Duration, fn func() (net.IP, net.IP, string, error)) {
+func laddrMonitor(ctx context.Context, interval time.Duration, fn func() (net.IP, net.IP, string, error)) {
 	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
 	for {
-		<-ticker.C
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
 		ipv4, ipv6, zone, err := fn()
 		if err != nil {
 			log.Println("Failed to update local address:", err)
@@ -63,9 +71,31 @@ func laddrMonitor(interval time.Duration, fn func() (net.IP, net.IP, string, err
 	}
 }
 
+func stopLaddrMonitor() {
+	monitorMu.Lock()
+	defer monitorMu.Unlock()
+	if monitorCancel != nil {
+		monitorCancel()
+		monitorCancel = nil
+	}
+}
+
+func startLaddrMonitor(interval time.Duration, fn func() (net.IP, net.IP, string, error)) {
+	ctx, cancel := context.WithCancel(context.Background())
+	monitorMu.Lock()
+	if monitorCancel != nil {
+		monitorCancel()
+	}
+	monitorCancel = cancel
+	monitorMu.Unlock()
+	go laddrMonitor(ctx, interval, fn)
+}
+
 var errNoInterfaceWithGateway = E.New("no interface with gateway detected")
 
 func SetLocalAddr(o BindingOption) error {
+	stopLaddrMonitor()
+
 	var ipv4, ipv6 net.IP
 	var zone string
 	switch o.Method {
@@ -100,7 +130,7 @@ func SetLocalAddr(o BindingOption) error {
 		}
 		ipv4, ipv6 = selected.ipv4, selected.ipv6
 		if o.UpdateInterval > 0 {
-			go laddrMonitor(o.UpdateInterval, func() (net.IP, net.IP, string, error) {
+			startLaddrMonitor(o.UpdateInterval, func() (net.IP, net.IP, string, error) {
 				interfaces, err := getFilteredInterfaces()
 				if err != nil {
 					return nil, nil, "", err
@@ -140,7 +170,7 @@ func SetLocalAddr(o BindingOption) error {
 			}
 		}
 		if o.UpdateInterval > 0 {
-			go laddrMonitor(o.UpdateInterval, func() (ipv4, ipv6 net.IP, zone string, err error) {
+			startLaddrMonitor(o.UpdateInterval, func() (ipv4, ipv6 net.IP, zone string, err error) {
 				var err1, err2 error
 				if o.DialIPv4Target != "" {
 					ipv4, _, err1 = detectByDial(network, o.DialIPv4Target, o.DialTimeout)

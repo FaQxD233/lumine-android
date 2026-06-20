@@ -60,6 +60,7 @@ func hashStringXXHASH(s string) uint32 {
 }
 
 func resetConfigState() {
+	_ = dial.SetLocalAddr(dial.BindingOption{})
 	logLevel = log.INFO
 	defaultPolicy = Policy{}
 	ipPools = nil

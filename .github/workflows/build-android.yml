@@ -32,6 +32,7 @@ jobs:
           version="${{ inputs.version }}"
           echo "tag=${version}" >> "$GITHUB_OUTPUT"
           echo "name=${version#v}" >> "$GITHUB_OUTPUT"
+          echo "code=$((1000 + GITHUB_RUN_NUMBER))" >> "$GITHUB_OUTPUT"
 
       - name: Set up Java
         uses: actions/setup-java@v4
@@ -96,7 +97,7 @@ jobs:
         shell: bash
         env:
           VERSION_NAME: ${{ steps.version.outputs.name }}
-          VERSION_CODE: ${{ github.run_number }}
+          VERSION_CODE: ${{ steps.version.outputs.code }}
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}

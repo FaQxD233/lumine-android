@@ -102,7 +102,7 @@ fun RuleEditorScreen(navController: NavController, viewModel: ConfigViewModel, t
                 Text("代理模式 (Mode)", style = MaterialTheme.typography.labelLarge)
             }
 
-            val modes = listOf("tls-rf", "raw", "direct", "block", "ttl-d")
+            val modes = listOf("tls-rf", "raw", "direct", "block", "tls-alert", "ttl-d")
             items(modes.size, key = { modes[it] }) { index ->
                 val m = modes[index]
                 Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {

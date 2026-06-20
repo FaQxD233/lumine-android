@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.moi.lumine.ui.ConfigViewModel
 import com.moi.lumine.ui.Screen
+import java.util.Locale
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -38,10 +39,10 @@ fun GlobalSettingsScreen(navController: NavController, viewModel: ConfigViewMode
     }
 
     var dnsAddr by remember { mutableStateOf(config.dnsAddr) }
-    var logLevel by remember { mutableStateOf(config.logLevel) }
+    var logLevel by remember { mutableStateOf(sanitizeLogLevel(config.logLevel)) }
     LaunchedEffect(config.dnsAddr, config.logLevel) {
         dnsAddr = config.dnsAddr
-        logLevel = config.logLevel
+        logLevel = sanitizeLogLevel(config.logLevel)
     }
 
     Scaffold(
@@ -55,9 +56,16 @@ fun GlobalSettingsScreen(navController: NavController, viewModel: ConfigViewMode
                 },
                 actions = {
                     IconButton(onClick = {
+                        val normalizedDnsAddr = dnsAddr.trim()
+                        if (normalizedDnsAddr.isBlank()) {
+                            coroutineScope.launch {
+                                snackbarHostState.showSnackbar("上游 DNS 不能为空")
+                            }
+                            return@IconButton
+                        }
                         val updatedConfig = config.copy(
-                            dnsAddr = dnsAddr,
-                            logLevel = logLevel
+                            dnsAddr = normalizedDnsAddr,
+                            logLevel = sanitizeLogLevel(logLevel)
                         )
                         viewModel.updateConfig(updatedConfig)
                         viewModel.saveConfig()
@@ -138,8 +146,7 @@ fun GlobalSettingsScreen(navController: NavController, viewModel: ConfigViewMode
             Spacer(modifier = Modifier.height(24.dp))
 
             Text("日志级别", style = MaterialTheme.typography.labelLarge)
-            val levels = listOf("DEBUG", "INFO", "ERROR")
-            levels.forEach { level ->
+            SupportedLogLevels.forEach { level ->
                 Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                     RadioButton(selected = (logLevel == level), onClick = { logLevel = level })
                     Text(level, modifier = Modifier.padding(start = 8.dp))
@@ -147,4 +154,11 @@ fun GlobalSettingsScreen(navController: NavController, viewModel: ConfigViewMode
             }
         }
     }
+}
+
+private val SupportedLogLevels = listOf("DEBUG", "INFO", "ERROR")
+
+private fun sanitizeLogLevel(value: String): String {
+    val normalized = value.trim().uppercase(Locale.US)
+    return if (normalized in SupportedLogLevels) normalized else "INFO"
 }

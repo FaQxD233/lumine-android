@@ -197,6 +197,7 @@ class LumineVpnService : VpnService() {
     }
 
     private fun stopVpn() {
+        var keepPendingStopForStarter = false
         val stopShellImmediately = synchronized(transitionLock) {
             if (isStopping) {
                 Log.i("LumineVpn", "Ignoring duplicate stop request")
@@ -206,6 +207,7 @@ class LumineVpnService : VpnService() {
                 true
             } else {
                 pendingStopRequested = true
+                keepPendingStopForStarter = isStarting
                 isStopping = true
                 false
             }
@@ -225,7 +227,9 @@ class LumineVpnService : VpnService() {
                 performCoreShutdownIfNeeded()
                 releaseRuntimeWakeLock()
                 LumineRecoveryScheduler.cancel(applicationContext)
-                pendingStopRequested = false
+                if (!keepPendingStopForStarter) {
+                    pendingStopRequested = false
+                }
                 VpnRuntimeState.setActive(false)
 
                 val tun = vpnInterface

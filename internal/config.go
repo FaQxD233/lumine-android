@@ -59,6 +59,32 @@ func hashStringXXHASH(s string) uint32 {
 	return uint32(xxhash.Sum64String(s))
 }
 
+func resetConfigState() {
+	logLevel = log.INFO
+	defaultPolicy = Policy{}
+	ipPools = nil
+	sem = nil
+	dnsAddr = ""
+	dnsClient = nil
+	httpCli = nil
+	dnsExchange = nil
+	dnsCache = nil
+	dnsCacheTTL = 0
+	dnsSingleflight = nil
+	ttlCache = nil
+	ttlCacheTTL = 0
+	ttlSingleflight = nil
+	calcTTL = nil
+	dohConnPolicy = nil
+	hostsMatcher = addrtrie.NewDomainMatcher[string]()
+	domainMatcher = addrtrie.NewDomainMatcher[*Policy]()
+	ipMatcher = addrtrie.NewIPv4Trie[*Policy]()
+	ipv6Matcher = addrtrie.NewIPv6Trie[*Policy]()
+	mobileDNSRecords.Lock()
+	mobileDNSRecords.byIP = make(map[string]mobileDNSRecord)
+	mobileDNSRecords.Unlock()
+}
+
 func LoadConfig(filePath string) (string, string, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
@@ -70,6 +96,9 @@ func LoadConfig(filePath string) (string, string, error) {
 		return "", "", err
 	}
 	file.Close()
+
+	StopIPPoolMonitors()
+	resetConfigState()
 
 	if err := dial.SetLocalAddr(conf.OutboundBinding); err != nil {
 		return "", "", err

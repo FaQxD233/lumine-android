@@ -77,6 +77,7 @@ jobs:
           gomobile bind \
             -target=android \
             -androidapi 24 \
+            -tags=godns \
             -o android/app/libs/LumineCore.aar \
             ./mobile
 

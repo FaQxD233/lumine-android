@@ -18,7 +18,9 @@ import com.moi.lumine.repository.DownloadPhase
 import com.moi.lumine.repository.DownloadStatus
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class ConfigViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = ConfigRepository(application)
@@ -175,8 +177,7 @@ class ConfigViewModel(application: Application) : AndroidViewModel(application) 
 
     fun refreshConfigList() {
         viewModelScope.launch {
-            val configs = repository.listConfigs()
-            _configList.value = configs
+            reloadConfigList()
         }
     }
 
@@ -194,6 +195,7 @@ class ConfigViewModel(application: Application) : AndroidViewModel(application) 
             val config = repository.loadConfig(name)
             if (config != null) {
                 _currentConfig.value = config
+                reloadConfigList()
                 if (_selectedConfigName.value != name) {
                     _selectedConfigName.value = name
                     repository.setSelectedConfigName(name)
@@ -389,6 +391,12 @@ class ConfigViewModel(application: Application) : AndroidViewModel(application) 
     private fun updateSelectedConfigDisplayName() {
         val match = _subscriptions.value.firstOrNull { it.configName == _selectedConfigName.value }
         _selectedConfigDisplayName.value = match?.name ?: _selectedConfigName.value
+    }
+
+    private suspend fun reloadConfigList() {
+        _configList.value = withContext(Dispatchers.IO) {
+            repository.listConfigs()
+        }
     }
 
     companion object {

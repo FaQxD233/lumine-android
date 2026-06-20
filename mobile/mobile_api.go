@@ -92,6 +92,15 @@ func StartLumine(fd int, configName string) string {
 	// Initialize logging redirection
 	mainLogger.Info("Lumine mobile starting...")
 	lumine.SetLogWriter(&LogWriter{})
+	started := false
+	defer func() {
+		if started {
+			return
+		}
+		engine.ClearCustomProxy()
+		lumine.StopIPPoolMonitors()
+		lumine.SetLogWriter(nil)
+	}()
 
 	configPath := filepath.Join(workingDir, configName+".json")
 
@@ -108,10 +117,10 @@ func StartLumine(fd int, configName string) string {
 		MTU:      1500,
 	})
 	if err = engine.StartErr(); err != nil {
-		engine.ClearCustomProxy()
 		return fmt.Sprintf("engine start error: %v", err)
 	}
 	isRunning = true
+	started = true
 
 	return ""
 }

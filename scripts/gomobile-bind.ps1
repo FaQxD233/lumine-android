@@ -3,6 +3,7 @@ param(
     [string]$JavaHome,
     [string]$Output = "android\app\libs\LumineCore.aar",
     [int]$AndroidApi = 24,
+    [string]$BuildTags = "godns",
     [string]$Package = "./mobile"
 )
 
@@ -66,6 +67,13 @@ function Restore-File {
     }
 }
 
+$repoRoot = Split-Path -Parent $PSScriptRoot
+$resolvedOutput = if ([System.IO.Path]::IsPathRooted($Output)) {
+    $Output
+} else {
+    Join-Path $repoRoot $Output
+}
+
 $resolvedAndroidHome = Resolve-ExistingPath `
     -ExplicitValue $AndroidHome `
     -EnvironmentNames @("ANDROID_HOME", "ANDROID_SDK_ROOT") `
@@ -76,8 +84,10 @@ $resolvedJavaHome = Resolve-ExistingPath `
     -EnvironmentNames @("JAVA_HOME") `
     -Name "JavaHome"
 
-$goModBackup = Backup-File "go.mod"
-$goSumBackup = Backup-File "go.sum"
+$goModPath = Join-Path $repoRoot "go.mod"
+$goSumPath = Join-Path $repoRoot "go.sum"
+$goModBackup = Backup-File $goModPath
+$goSumBackup = Backup-File $goSumPath
 
 try {
     $env:ANDROID_HOME = $resolvedAndroidHome
@@ -93,7 +103,7 @@ try {
     $pathEntries += (Join-Path $resolvedAndroidHome "platform-tools")
     $env:Path = ($pathEntries + $env:Path) -join [System.IO.Path]::PathSeparator
 
-    $outDir = Split-Path -Parent $Output
+    $outDir = Split-Path -Parent $resolvedOutput
     if ($outDir -and !(Test-Path $outDir)) {
         New-Item -ItemType Directory -Path $outDir | Out-Null
     }
@@ -103,16 +113,28 @@ try {
         "-target=android"
         "-androidapi"
         "$AndroidApi"
+    )
+    if (![string]::IsNullOrWhiteSpace($BuildTags)) {
+        $gomobileArgs += @("-tags", $BuildTags)
+    }
+    $gomobileArgs += @(
         "-o"
-        $Output
+        $resolvedOutput
         $Package
     )
-    & gomobile @gomobileArgs
+
+    Push-Location $repoRoot
+    try {
+        & gomobile @gomobileArgs
+    }
+    finally {
+        Pop-Location
+    }
     if ($LASTEXITCODE -ne 0) {
         exit $LASTEXITCODE
     }
 }
 finally {
-    Restore-File -Backup $goModBackup -Destination "go.mod"
-    Restore-File -Backup $goSumBackup -Destination "go.sum"
+    Restore-File -Backup $goModBackup -Destination $goModPath
+    Restore-File -Backup $goSumBackup -Destination $goSumPath
 }

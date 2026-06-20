@@ -188,14 +188,19 @@ func doDNSResolve(domain string, dnsMode DNSMode) (string, error) {
 
 	ipStr := ip.String()
 	if dnsCache != nil {
-		dnsCache.AddWithLifetime(domain, ipStr, dnsCacheTTL)
+		dnsCache.AddWithLifetime(dnsCacheKey(domain, dnsMode), ipStr, dnsCacheTTL)
 	}
 	return ipStr, nil
 }
 
+func dnsCacheKey(domain string, dnsMode DNSMode) string {
+	return dnsMode.String() + "\x00" + domain
+}
+
 func dnsResolve(domain string, dnsMode DNSMode) (ip string, cached bool, err error) {
+	key := dnsCacheKey(domain, dnsMode)
 	if dnsCache != nil {
-		if ip, ok := dnsCache.Get(domain); ok {
+		if ip, ok := dnsCache.Get(key); ok {
 			return ip, true, nil
 		}
 	}
@@ -204,7 +209,7 @@ func dnsResolve(domain string, dnsMode DNSMode) (ip string, cached bool, err err
 		ip, err = doDNSResolve(domain, dnsMode)
 	} else {
 		var v any
-		v, err, _ = dnsSingleflight.Do(domain, func() (any, error) {
+		v, err, _ = dnsSingleflight.Do(key, func() (any, error) {
 			return doDNSResolve(domain, dnsMode)
 		})
 		if err == nil {

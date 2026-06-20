@@ -66,6 +66,7 @@ fun HomeScreen(
         item {
             StatusCard(
                 isConnected = isConnected,
+                vpnPhase = vpnStatus.phase,
                 statusMessage = vpnStatus.message,
                 isBusy = vpnStatus.phase == "authorizing" || vpnStatus.phase == "starting" || vpnStatus.phase == "stopping"
             ) {
@@ -99,7 +100,21 @@ fun HomeScreen(
 }
 
 @Composable
-fun StatusCard(isConnected: Boolean, statusMessage: String, isBusy: Boolean, onClick: () -> Unit) {
+fun StatusCard(
+    isConnected: Boolean,
+    vpnPhase: String,
+    statusMessage: String,
+    isBusy: Boolean,
+    onClick: () -> Unit
+) {
+    val titleText = when {
+        vpnPhase == "authorizing" -> "等待授权"
+        vpnPhase == "starting" -> "启动中"
+        vpnPhase == "stopping" -> "停止中"
+        vpnPhase == "error" -> "运行异常"
+        isConnected -> "已启动"
+        else -> "已停止"
+    }
     val summaryText = when {
         statusMessage.isNotBlank() && (isConnected || isBusy) -> statusMessage
         isConnected -> "服务运行中"
@@ -133,6 +148,12 @@ fun StatusCard(isConnected: Boolean, statusMessage: String, isBusy: Boolean, onC
         animationSpec = tween(durationMillis = 320),
         label = "status_elevation"
     )
+    val statusIcon = when {
+        isConnected -> Icons.Default.CheckCircle
+        isBusy -> Icons.Default.Sync
+        vpnPhase == "error" -> Icons.Default.Error
+        else -> Icons.Default.Cancel
+    }
 
     Card(
         modifier = Modifier
@@ -151,7 +172,7 @@ fun StatusCard(isConnected: Boolean, statusMessage: String, isBusy: Boolean, onC
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
-                imageVector = if (isConnected) Icons.Default.CheckCircle else Icons.Default.Cancel,
+                imageVector = statusIcon,
                 contentDescription = null,
                 modifier = Modifier
                     .size(48.dp)
@@ -164,7 +185,7 @@ fun StatusCard(isConnected: Boolean, statusMessage: String, isBusy: Boolean, onC
             Spacer(modifier = Modifier.width(16.dp))
             Column(modifier = Modifier.weight(1f)) {
                 AnimatedContent(
-                    targetState = if (isConnected) "已启动" else "已停止",
+                    targetState = titleText,
                     transitionSpec = { statusContentTransform() },
                     label = "status_title"
                 ) { title ->

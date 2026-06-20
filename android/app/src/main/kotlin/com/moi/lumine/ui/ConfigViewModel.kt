@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import mobile.Mobile
 
 class ConfigViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = ConfigRepository(application)
@@ -73,6 +74,9 @@ class ConfigViewModel(application: Application) : AndroidViewModel(application) 
 
     private val _appProxyMode = MutableStateFlow(repository.getAppProxyMode())
     val appProxyMode: StateFlow<AppProxyMode> = _appProxyMode
+
+    private val _blockQuic = MutableStateFlow(repository.isBlockQuicEnabled())
+    val blockQuic: StateFlow<Boolean> = _blockQuic
 
     private val _selectedAppPackages = MutableStateFlow(repository.getSelectedAppPackages())
     val selectedAppPackages: StateFlow<Set<String>> = _selectedAppPackages
@@ -148,6 +152,12 @@ class ConfigViewModel(application: Application) : AndroidViewModel(application) 
     fun setAppProxyMode(mode: AppProxyMode) {
         _appProxyMode.value = mode
         repository.setAppProxyMode(mode)
+    }
+
+    fun setBlockQuic(enabled: Boolean) {
+        _blockQuic.value = enabled
+        repository.setBlockQuicEnabled(enabled)
+        Mobile.setBlockQuic(enabled)
     }
 
     fun toggleAppPackage(packageName: String) {

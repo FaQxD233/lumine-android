@@ -26,6 +26,7 @@ import kotlinx.coroutines.launch
 fun GlobalSettingsScreen(navController: NavController, viewModel: ConfigViewModel) {
     val config by viewModel.currentConfig.collectAsState()
     val selectedConfigName by viewModel.selectedConfigName.collectAsState()
+    val blockQuic by viewModel.blockQuic.collectAsState()
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
@@ -104,6 +105,20 @@ fun GlobalSettingsScreen(navController: NavController, viewModel: ConfigViewMode
                 Icon(Icons.Default.Apps, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
                 Text("应用代理范围")
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+            ) {
+                Text("阻止 QUIC (UDP/443)", style = MaterialTheme.typography.bodyLarge)
+                Switch(
+                    checked = blockQuic,
+                    onCheckedChange = { viewModel.setBlockQuic(it) }
+                )
             }
 
             Spacer(modifier = Modifier.height(24.dp))

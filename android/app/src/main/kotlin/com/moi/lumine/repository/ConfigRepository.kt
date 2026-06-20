@@ -132,6 +132,14 @@ class ConfigRepository(private val context: Context) {
         prefs.edit().putString(KEY_APP_PROXY_MODE, mode.name).apply()
     }
 
+    fun isBlockQuicEnabled(): Boolean {
+        return prefs.getBoolean(KEY_BLOCK_QUIC, true)
+    }
+
+    fun setBlockQuicEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_BLOCK_QUIC, enabled).apply()
+    }
+
     fun getSelectedAppPackages(): Set<String> {
         return prefs.getStringSet(KEY_APP_PROXY_PACKAGES, emptySet()).orEmpty()
     }
@@ -324,6 +332,7 @@ class ConfigRepository(private val context: Context) {
         private const val KEY_LAST_RUNNING_CONFIG = "last_running_config_name"
         private const val KEY_APP_PROXY_MODE = "app_proxy_mode"
         private const val KEY_APP_PROXY_PACKAGES = "app_proxy_packages"
+        private const val KEY_BLOCK_QUIC = "block_quic_udp_443"
         private const val MAX_SUBSCRIPTION_MB = 16
         private const val MAX_SUBSCRIPTION_BYTES = MAX_SUBSCRIPTION_MB * 1024L * 1024L
     }

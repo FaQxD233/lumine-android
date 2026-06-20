@@ -134,6 +134,7 @@ class LumineVpnService : VpnService() {
                     VpnRuntimeState.setStatus("starting", "VPN 已建立，正在启动核心")
 
                     Mobile.setWorkingDir(filesDir.absolutePath)
+                    Mobile.setBlockQuic(repository.isBlockQuicEnabled())
                     synchronized(transitionLock) {
                         if (pendingStopRequested) {
                             closePendingTunFd()

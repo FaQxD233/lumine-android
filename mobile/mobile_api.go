@@ -28,6 +28,7 @@ var (
 
 func init() {
 	mainLogger = log.New(&LogWriter{}, "", log.LstdFlags, log.INFO)
+	blockQuic.Store(true)
 }
 
 func pushLog(msg string) {
@@ -70,6 +71,11 @@ func SetWorkingDir(dir string) {
 	mu.Lock()
 	defer mu.Unlock()
 	workingDir = dir
+}
+
+// SetBlockQuic controls Android TUN-layer UDP/443 dropping.
+func SetBlockQuic(enabled bool) {
+	blockQuic.Store(enabled)
 }
 
 // StartLumine 指定配置名启动核心和 tun2socks

@@ -20,6 +20,7 @@ type LumineProxy struct{}
 var (
 	tcpDialID uint32
 	udpDialID uint32
+	blockQuic atomic.Bool
 )
 
 func (p *LumineProxy) Addr() string {
@@ -115,6 +116,15 @@ func (pc *luminePacketConn) WriteTo(b []byte, addr net.Addr) (int, error) {
 
 	if lumine.IsVPNDNSAddress(dstIP.String(), udpAddr.Port) {
 		return pc.handleDNSQuery(b, udpAddr)
+	}
+
+	if blockQuic.Load() && udpAddr.Port == 443 {
+		target := udpAddr.String()
+		if pc.logger != nil {
+			pc.logger.Info("Blocked QUIC UDP/443:", target)
+		}
+		recordBlockedStat("UDP", target)
+		return len(b), nil
 	}
 
 	originHost := dstIP.String()

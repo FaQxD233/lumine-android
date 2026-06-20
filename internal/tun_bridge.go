@@ -35,7 +35,7 @@ func DefaultDialTimeout(p Policy) time.Duration {
 	if p.ConnectTimeout > 0 {
 		return p.ConnectTimeout
 	}
-	return 10 * time.Second
+	return defaultConnectTimeout
 }
 
 func WrapTCPConn(conn net.Conn, plan DialPlan, logger *log.Logger) net.Conn {

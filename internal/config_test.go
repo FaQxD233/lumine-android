@@ -91,6 +91,27 @@ func TestLoadConfigCleansPartialStateOnError(t *testing.T) {
 	}
 }
 
+func TestLoadConfigAppliesDefaultPolicyRuntimeDefaults(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "minimal.json")
+	writeTestConfig(t, path, `{
+		"dns_addr": "1.1.1.1:53"
+	}`)
+
+	if _, _, err := LoadConfig(path); err != nil {
+		t.Fatalf("load minimal config: %v", err)
+	}
+
+	if defaultPolicy.Mode != ModeDefault {
+		t.Fatalf("default mode = %v, want %v", defaultPolicy.Mode, ModeDefault)
+	}
+	if defaultPolicy.DNSMode != DNSModeDefault {
+		t.Fatalf("default DNS mode = %v, want %v", defaultPolicy.DNSMode, DNSModeDefault)
+	}
+	if defaultPolicy.ConnectTimeout != defaultConnectTimeout {
+		t.Fatalf("default connect timeout = %v, want 10s", defaultPolicy.ConnectTimeout)
+	}
+}
+
 func TestValidateConfigJSONRejectsCoreInvalidValues(t *testing.T) {
 	cases := map[string]string{
 		"bad log level":   `{"log_level":"WARN","dns_addr":"1.1.1.1:53"}`,

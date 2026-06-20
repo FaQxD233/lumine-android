@@ -221,7 +221,7 @@ func LoadConfig(filePath string) (socks5Addr string, httpAddr string, err error)
 		}
 	}
 
-	defaultPolicy = conf.DefaultPolicy
+	defaultPolicy = normalizePolicyDefaults(conf.DefaultPolicy)
 
 	hostsMatcher = addrtrie.NewDomainMatcher[string]()
 	for patterns, host := range conf.Hosts {

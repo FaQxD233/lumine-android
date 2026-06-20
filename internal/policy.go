@@ -27,6 +27,12 @@ var (
 const (
 	unsetInt    = -1
 	unsetString = "-"
+
+	defaultConnectTimeout    = 10 * time.Second
+	defaultTTLDAttempts      = 2
+	defaultTTLDMaxTTL        = 64
+	defaultTTLDFakeSleep     = 200 * time.Millisecond
+	defaultTTLDSingleTimeout = 500 * time.Millisecond
 )
 
 type SniffOverrideMode uint8
@@ -167,6 +173,39 @@ type Policy struct {
 	MaxTTL        int
 	Attempts      int
 	SingleTimeout time.Duration
+}
+
+func normalizePolicyDefaults(p Policy) Policy {
+	if p.Host == "" {
+		p.Host = unsetString
+	}
+	if p.MapTo == "" {
+		p.MapTo = unsetString
+	}
+	if p.Mode == ModeUnknown {
+		p.Mode = ModeDefault
+	}
+	if p.DNSMode == DNSModeUnknown {
+		p.DNSMode = DNSModeDefault
+	}
+	if p.ConnectTimeout <= 0 {
+		p.ConnectTimeout = defaultConnectTimeout
+	}
+	if p.Mode == ModeTTLD {
+		if p.Attempts <= 0 {
+			p.Attempts = defaultTTLDAttempts
+		}
+		if p.MaxTTL <= 1 {
+			p.MaxTTL = defaultTTLDMaxTTL
+		}
+		if p.FakeSleep <= 0 {
+			p.FakeSleep = defaultTTLDFakeSleep
+		}
+		if p.SingleTimeout <= 0 {
+			p.SingleTimeout = defaultTTLDSingleTimeout
+		}
+	}
+	return p
 }
 
 func (p *Policy) UnmarshalJSON(data []byte) error {
@@ -474,6 +513,7 @@ func mergePolicies(policies ...*Policy) *Policy {
 	if merged.DNSMode == DNSModeUnknown {
 		merged.DNSMode = DNSModeDefault
 	}
+	merged = normalizePolicyDefaults(merged)
 	return &merged
 }
 

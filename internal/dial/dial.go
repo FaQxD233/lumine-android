@@ -21,6 +21,8 @@ var (
 	monitorCancel    context.CancelFunc
 )
 
+const defaultConnectTimeout = 10 * time.Second
+
 func DialContext(ctx context.Context, network, address string) (net.Conn, error) {
 	var dialer *net.Dialer
 	if address[0] == '[' {
@@ -32,6 +34,9 @@ func DialContext(ctx context.Context, network, address string) (net.Conn, error)
 }
 
 func DialTimeout(ctx context.Context, network, address string, timeout time.Duration) (net.Conn, error) {
+	if timeout <= 0 {
+		timeout = defaultConnectTimeout
+	}
 	timeoutCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	return DialContext(timeoutCtx, network, address)

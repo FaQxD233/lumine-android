@@ -3,6 +3,7 @@ package mobile
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -81,6 +82,7 @@ func StartLumine(fd int, configName string) string {
 		return "working directory not set"
 	}
 	if isRunning {
+		closeUnusedFD(fd)
 		return ""
 	}
 
@@ -123,6 +125,17 @@ func StartLumine(fd int, configName string) string {
 	started = true
 
 	return ""
+}
+
+func closeUnusedFD(fd int) {
+	if fd < 0 {
+		return
+	}
+	file := os.NewFile(uintptr(fd), "unused-tun")
+	if file == nil {
+		return
+	}
+	_ = file.Close()
 }
 
 // StopLumine 停止服务

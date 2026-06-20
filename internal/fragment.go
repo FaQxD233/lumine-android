@@ -13,6 +13,13 @@ func sendRecords(conn net.Conn, clientHello []byte,
 	offset, length, records, segments int,
 	oob, oobex, modMinorVer, waitForAckEnabled bool,
 	interval time.Duration) error {
+	if records == 0 {
+		records = 1
+	}
+	if segments == 0 {
+		segments = 1
+	}
+
 	if modMinorVer {
 		clientHello[2] = 0x4
 	}

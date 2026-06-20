@@ -59,6 +59,43 @@ func hashStringXXHASH(s string) uint32 {
 	return uint32(xxhash.Sum64String(s))
 }
 
+func ValidateConfigJSON(raw []byte) error {
+	var conf Config
+	if err := json.Unmarshal(raw, &conf); err != nil {
+		return err
+	}
+	return validateConfigBasics(conf)
+}
+
+func validateConfigBasics(conf Config) error {
+	if conf.LogLevel != "" {
+		switch conf.LogLevel {
+		case "DEBUG", "debug", "INFO", "info", "ERROR", "error":
+		default:
+			return E.New("unknown log level: " + conf.LogLevel)
+		}
+	}
+
+	if conf.DNSCacheTTL < 0 {
+		return E.New("invalid dns_cache_ttl: " + strconv.Itoa(conf.DNSCacheTTL))
+	}
+	if conf.DNSCacheTTL != 0 && conf.DNSCacheCapacity < 1 {
+		return E.New("invalid dns_cache_cap: " + strconv.Itoa(conf.DNSCacheCapacity))
+	}
+	if conf.TTLCacheTTL < 0 {
+		return E.New("invalid ttl cache ttl: " + strconv.Itoa(conf.TTLCacheTTL))
+	}
+	if conf.TTLCacheTTL != 0 && conf.TTLCacheCapacity < 1 {
+		return E.New("invalid ttl_cache_cap: " + strconv.Itoa(conf.TTLCacheCapacity))
+	}
+	if conf.FakeTTLRules != "" {
+		if err := validateTTLRules(conf.FakeTTLRules); err != nil {
+			return E.WithStr("load fake ttl rules", err)
+		}
+	}
+	return nil
+}
+
 func resetConfigState() {
 	_ = dial.SetLocalAddr(dial.BindingOption{})
 	logLevel = log.INFO
@@ -108,6 +145,9 @@ func LoadConfig(filePath string) (socks5Addr string, httpAddr string, err error)
 		StopIPPoolMonitors()
 		resetConfigState()
 	}()
+	if err := validateConfigBasics(conf); err != nil {
+		return "", "", err
+	}
 
 	if err := dial.SetLocalAddr(conf.OutboundBinding); err != nil {
 		return "", "", err

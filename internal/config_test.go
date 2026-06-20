@@ -91,6 +91,33 @@ func TestLoadConfigCleansPartialStateOnError(t *testing.T) {
 	}
 }
 
+func TestValidateConfigJSONRejectsCoreInvalidValues(t *testing.T) {
+	cases := map[string]string{
+		"bad log level":   `{"log_level":"WARN","dns_addr":"1.1.1.1:53"}`,
+		"bad dns cache":   `{"dns_addr":"1.1.1.1:53","dns_cache_ttl":60,"dns_cache_cap":0}`,
+		"bad ttl rules":   `{"dns_addr":"1.1.1.1:53","fake_ttl_rules":"broken"}`,
+		"bad policy mode": `{"dns_addr":"1.1.1.1:53","default_policy":{"mode":"warp-speed"}}`,
+	}
+
+	for name, body := range cases {
+		t.Run(name, func(t *testing.T) {
+			if err := ValidateConfigJSON([]byte(body)); err == nil {
+				t.Fatalf("ValidateConfigJSON accepted invalid config")
+			}
+		})
+	}
+}
+
+func TestValidateConfigJSONAcceptsDefaultConfig(t *testing.T) {
+	body, err := os.ReadFile(filepath.Join("..", "config.json"))
+	if err != nil {
+		t.Fatalf("read default config: %v", err)
+	}
+	if err := ValidateConfigJSON(body); err != nil {
+		t.Fatalf("ValidateConfigJSON rejected default config: %v", err)
+	}
+}
+
 func writeTestConfig(t *testing.T, path string, body string) {
 	t.Helper()
 	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {

@@ -1,7 +1,6 @@
 package mobile
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -165,9 +164,8 @@ func IsRunning() bool {
 
 // CheckConfig 验证 JSON 语法与 Lumine 规则合法性
 func CheckConfig(jsonContent string) string {
-	var conf lumine.Config
-	if err := json.Unmarshal([]byte(jsonContent), &conf); err != nil {
-		return fmt.Sprintf("invalid json: %v", err)
+	if err := lumine.ValidateConfigJSON([]byte(jsonContent)); err != nil {
+		return fmt.Sprintf("invalid config: %v", err)
 	}
 	return ""
 }

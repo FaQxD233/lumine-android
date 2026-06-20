@@ -21,6 +21,7 @@ import java.net.URL
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import mobile.Mobile
 
 class ConfigRepository(private val context: Context) {
 
@@ -239,6 +240,10 @@ class ConfigRepository(private val context: Context) {
                 )
             )
             val body = output.toString(Charsets.UTF_8.name())
+            val validationError = Mobile.checkConfig(body)
+            if (validationError.isNotBlank()) {
+                throw IllegalArgumentException("订阅配置无效: ${validationError.take(180)}")
+            }
             return@withContext adapter.fromJson(body)
                 ?: throw IllegalArgumentException("订阅内容不是有效的 Lumine 配置 JSON")
         } finally {

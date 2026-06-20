@@ -15,6 +15,7 @@ import (
 var errTTLDNotSupported = errors.New("`ttl-d` is not supported on current system")
 
 var (
+	calcTTL         func(int) (int, error)
 	ttlCache        *freelru.ShardedLRU[string, int]
 	ttlCacheTTL     time.Duration
 	ttlSingleflight *singleflight.Group

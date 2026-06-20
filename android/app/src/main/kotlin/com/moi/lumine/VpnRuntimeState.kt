@@ -3,6 +3,7 @@ package com.moi.lumine
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import org.json.JSONObject
 
 data class VpnStatus(
     val phase: String = "idle",
@@ -33,6 +34,25 @@ data class RuntimeLogSnapshot(
     val debugCount: Int = 0
 )
 
+data class RuntimeStatEvent(
+    val time: String,
+    val type: String,
+    val target: String,
+    val mode: String?,
+    val outcome: String,
+    val detail: String?
+)
+
+data class RuntimeStats(
+    val startedAt: String = "",
+    val tcpConnections: Long = 0,
+    val udpFlows: Long = 0,
+    val dnsQueries: Long = 0,
+    val blockedRequests: Long = 0,
+    val failedRequests: Long = 0,
+    val recentEvents: List<RuntimeStatEvent> = emptyList()
+)
+
 object VpnRuntimeState {
     private const val MAX_LOG_ENTRIES = 1000
     private val TIMESTAMP_REGEX = Regex("""^\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}\s+""")
@@ -49,6 +69,9 @@ object VpnRuntimeState {
 
     private val _logSnapshot = MutableStateFlow(RuntimeLogSnapshot())
     val logSnapshot: StateFlow<RuntimeLogSnapshot> = _logSnapshot.asStateFlow()
+
+    private val _stats = MutableStateFlow(RuntimeStats())
+    val stats: StateFlow<RuntimeStats> = _stats.asStateFlow()
 
     private val logLock = Any()
     private val logBuffer = ArrayDeque<RuntimeLogEntry>(MAX_LOG_ENTRIES)
@@ -101,6 +124,43 @@ object VpnRuntimeState {
             errorCount = 0
             debugCount = 0
             _logSnapshot.value = RuntimeLogSnapshot()
+        }
+    }
+
+    fun updateStatsFromJson(raw: String) {
+        if (raw.isBlank()) {
+            return
+        }
+
+        runCatching {
+            val obj = JSONObject(raw)
+            val eventsArray = obj.optJSONArray("recent_events")
+            val events = buildList {
+                if (eventsArray != null) {
+                    for (index in 0 until eventsArray.length()) {
+                        val eventObj = eventsArray.optJSONObject(index) ?: continue
+                        add(
+                            RuntimeStatEvent(
+                                time = eventObj.optString("time"),
+                                type = eventObj.optString("type"),
+                                target = eventObj.optString("target"),
+                                mode = eventObj.optString("mode").takeIf { it.isNotBlank() },
+                                outcome = eventObj.optString("outcome"),
+                                detail = eventObj.optString("detail").takeIf { it.isNotBlank() }
+                            )
+                        )
+                    }
+                }
+            }
+            _stats.value = RuntimeStats(
+                startedAt = obj.optString("started_at"),
+                tcpConnections = obj.optLong("tcp_connections"),
+                udpFlows = obj.optLong("udp_flows"),
+                dnsQueries = obj.optLong("dns_queries"),
+                blockedRequests = obj.optLong("blocked_requests"),
+                failedRequests = obj.optLong("failed_requests"),
+                recentEvents = events
+            )
         }
     }
 

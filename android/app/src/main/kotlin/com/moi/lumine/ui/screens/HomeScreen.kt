@@ -88,6 +88,7 @@ fun HomeScreen(
 
         item { MenuItem(Icons.Default.Tune, "规则") { navController.navigate(Screen.Rules.route) } }
         item { MenuItem(Icons.AutoMirrored.Filled.Assignment, "日志") { navController.navigate(Screen.Logs.route) } }
+        item { MenuItem(Icons.Default.QueryStats, "统计") { navController.navigate(Screen.Stats.route) } }
         item { MenuItem(Icons.Default.Settings, "设置") { navController.navigate(Screen.Settings.route) } }
         item {
             MenuItem(Icons.Default.Info, "关于") {

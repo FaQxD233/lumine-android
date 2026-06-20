@@ -5,8 +5,11 @@ import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.moi.lumine.RuntimeLogSnapshot
+import com.moi.lumine.RuntimeStats
 import com.moi.lumine.VpnRuntimeState
 import com.moi.lumine.VpnStatus
+import com.moi.lumine.model.AppProxyMode
+import com.moi.lumine.model.InstalledAppInfo
 import com.moi.lumine.model.LumineConfig
 import com.moi.lumine.repository.ExportedLogFile
 import com.moi.lumine.model.SubscriptionProfile
@@ -57,6 +60,7 @@ class ConfigViewModel(application: Application) : AndroidViewModel(application) 
     val logExportMessage: StateFlow<String?> = _logExportMessage
 
     val logSnapshot: StateFlow<RuntimeLogSnapshot> = VpnRuntimeState.logSnapshot
+    val runtimeStats: StateFlow<RuntimeStats> = VpnRuntimeState.stats
     val isVpnActive: StateFlow<Boolean> = VpnRuntimeState.isVpnActive
 
     val vpnStatus: StateFlow<VpnStatus> = VpnRuntimeState.status
@@ -65,10 +69,23 @@ class ConfigViewModel(application: Application) : AndroidViewModel(application) 
     private val _editingRuleKey = MutableStateFlow<String?>(null)
     val editingRuleKey: StateFlow<String?> = _editingRuleKey
 
+    private val _appProxyMode = MutableStateFlow(repository.getAppProxyMode())
+    val appProxyMode: StateFlow<AppProxyMode> = _appProxyMode
+
+    private val _selectedAppPackages = MutableStateFlow(repository.getSelectedAppPackages())
+    val selectedAppPackages: StateFlow<Set<String>> = _selectedAppPackages
+
+    private val _installedApps = MutableStateFlow<List<InstalledAppInfo>>(emptyList())
+    val installedApps: StateFlow<List<InstalledAppInfo>> = _installedApps
+
+    private val _isLoadingInstalledApps = MutableStateFlow(false)
+    val isLoadingInstalledApps: StateFlow<Boolean> = _isLoadingInstalledApps
+
     init {
         refreshConfigList()
         refreshSubscriptions()
         loadConfig(_selectedConfigName.value)
+        refreshInstalledApps()
     }
 
     fun clearLogs() {
@@ -124,6 +141,32 @@ class ConfigViewModel(application: Application) : AndroidViewModel(application) 
 
     fun setEditingRule(key: String?) {
         _editingRuleKey.value = key
+    }
+
+    fun setAppProxyMode(mode: AppProxyMode) {
+        _appProxyMode.value = mode
+        repository.setAppProxyMode(mode)
+    }
+
+    fun toggleAppPackage(packageName: String) {
+        val updated = _selectedAppPackages.value.toMutableSet().apply {
+            if (!add(packageName)) {
+                remove(packageName)
+            }
+        }
+        _selectedAppPackages.value = updated
+        repository.setSelectedAppPackages(updated)
+    }
+
+    fun refreshInstalledApps() {
+        viewModelScope.launch {
+            _isLoadingInstalledApps.value = true
+            try {
+                _installedApps.value = repository.loadInstalledApps()
+            } finally {
+                _isLoadingInstalledApps.value = false
+            }
+        }
     }
 
     fun consumeSubscriptionMessage() {

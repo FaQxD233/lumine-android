@@ -8,5 +8,7 @@ sealed class Screen(val route: String) {
         fun createRoute(type: String) = "rule_detail/$type"
     }
     object Settings : Screen("settings")
+    object AppProxy : Screen("app_proxy")
     object Logs : Screen("logs")
+    object Stats : Screen("stats")
 }

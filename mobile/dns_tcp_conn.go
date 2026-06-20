@@ -43,6 +43,7 @@ func serveLocalDNSTCP(conn net.Conn, logger *log.Logger) {
 		resp, err := lumine.HandleDNSQueryPacket(payload)
 		if err != nil {
 			logger.Error("Handle hijacked TCP DNS query:", err)
+			recordDNSStat(summarizeDNSPacket(payload), "failed", err.Error())
 			return
 		}
 
@@ -55,5 +56,6 @@ func serveLocalDNSTCP(conn net.Conn, logger *log.Logger) {
 		}
 
 		logger.Info("DNS TCP hijack served:", summarizeDNSPacket(payload), "resp", summarizeDNSPacket(resp), "bytes=", fmt.Sprintf("%d", msgLen))
+		recordDNSStat(summarizeDNSPacket(payload), "ok", summarizeDNSPacket(resp))
 	}
 }

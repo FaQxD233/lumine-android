@@ -1,6 +1,6 @@
 param(
-    [string]$AndroidHome = "D:\Android\Sdk",
-    [string]$JavaHome = "D:\Android\jbr",
+    [string]$AndroidHome,
+    [string]$JavaHome,
     [string]$Output = "android\app\libs\LumineCore.aar",
     [int]$AndroidApi = 24,
     [string]$Package = "./mobile"
@@ -8,24 +8,41 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-function Ensure-Junction {
+function Resolve-ExistingPath {
     param(
-        [Parameter(Mandatory = $true)][string]$Path,
-        [Parameter(Mandatory = $true)][string]$Target
+        [string]$ExplicitValue,
+        [string[]]$EnvironmentNames,
+        [Parameter(Mandatory = $true)][string]$Name,
+        [switch]$Required
     )
 
-    if (Test-Path $Path) {
-        return
+    $candidates = @()
+    if (![string]::IsNullOrWhiteSpace($ExplicitValue)) {
+        $candidates += $ExplicitValue
     }
-    if (!(Test-Path $Target)) {
-        return
+    foreach ($envName in $EnvironmentNames) {
+        $envValue = [Environment]::GetEnvironmentVariable($envName)
+        if (![string]::IsNullOrWhiteSpace($envValue)) {
+            $candidates += $envValue
+        }
     }
 
-    $parent = Split-Path -Parent $Path
-    if ($parent -and !(Test-Path $parent)) {
-        New-Item -ItemType Directory -Path $parent | Out-Null
+    foreach ($candidate in $candidates) {
+        if (Test-Path $candidate) {
+            return (Resolve-Path $candidate).Path
+        }
     }
-    New-Item -ItemType Junction -Path $Path -Target $Target | Out-Null
+
+    if ($Required) {
+        $hint = if ($EnvironmentNames.Count -gt 0) {
+            " Pass -$Name or set " + ($EnvironmentNames -join "/") + "."
+        } else {
+            " Pass -$Name."
+        }
+        throw "$Name not found.$hint"
+    }
+
+    return $null
 }
 
 function Backup-File {
@@ -49,21 +66,32 @@ function Restore-File {
     }
 }
 
-Ensure-Junction -Path (Join-Path $AndroidHome "ndk") -Target "D:\sdk\ndk"
-Ensure-Junction -Path (Join-Path $AndroidHome "platforms") -Target "D:\sdk\platforms"
-Ensure-Junction -Path (Join-Path $AndroidHome "platform-tools") -Target "D:\sdk\platform-tools"
-Ensure-Junction -Path (Join-Path $AndroidHome "build-tools") -Target "D:\sdk\build-tools"
-Ensure-Junction -Path "D:\sdk\platforms\android-36" -Target "D:\sdk\platforms\android-36.1"
+$resolvedAndroidHome = Resolve-ExistingPath `
+    -ExplicitValue $AndroidHome `
+    -EnvironmentNames @("ANDROID_HOME", "ANDROID_SDK_ROOT") `
+    -Name "AndroidHome" `
+    -Required
+$resolvedJavaHome = Resolve-ExistingPath `
+    -ExplicitValue $JavaHome `
+    -EnvironmentNames @("JAVA_HOME") `
+    -Name "JavaHome"
 
 $goModBackup = Backup-File "go.mod"
 $goSumBackup = Backup-File "go.sum"
 
 try {
-    $env:ANDROID_HOME = $AndroidHome
-    $env:ANDROID_SDK_ROOT = $AndroidHome
-    $env:JAVA_HOME = $JavaHome
+    $env:ANDROID_HOME = $resolvedAndroidHome
+    $env:ANDROID_SDK_ROOT = $resolvedAndroidHome
+    if ($resolvedJavaHome) {
+        $env:JAVA_HOME = $resolvedJavaHome
+    }
     $env:GOFLAGS = "-mod=mod"
-    $env:Path = "$JavaHome\bin;$AndroidHome\platform-tools;$env:Path"
+    $pathEntries = @()
+    if ($resolvedJavaHome) {
+        $pathEntries += (Join-Path $resolvedJavaHome "bin")
+    }
+    $pathEntries += (Join-Path $resolvedAndroidHome "platform-tools")
+    $env:Path = ($pathEntries + $env:Path) -join [System.IO.Path]::PathSeparator
 
     $outDir = Split-Path -Parent $Output
     if ($outDir -and !(Test-Path $outDir)) {

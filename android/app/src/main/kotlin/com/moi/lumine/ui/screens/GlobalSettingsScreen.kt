@@ -17,6 +17,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.moi.lumine.ui.ConfigViewModel
+import com.moi.lumine.ui.Screen
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -85,6 +86,17 @@ fun GlobalSettingsScreen(navController: NavController, viewModel: ConfigViewMode
                 modifier = Modifier.fillMaxWidth(),
                 placeholder = { Text("https://... 或 1.1.1.1:53") }
             )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            OutlinedButton(
+                onClick = { navController.navigate(Screen.AppProxy.route) },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(Icons.Default.Apps, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("应用代理范围")
+            }
 
             Spacer(modifier = Modifier.height(24.dp))
 

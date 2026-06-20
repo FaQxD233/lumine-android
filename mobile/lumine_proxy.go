@@ -49,10 +49,12 @@ func (p *LumineProxy) DialContext(ctx context.Context, m *metadata.Metadata) (ne
 	}, logger)
 	if err != nil {
 		logger.Error("Build dial plan:", err)
+		recordFailedStat("TCP", originHost, err.Error())
 		return nil, err
 	}
 	if plan.Blocked {
 		logger.Info("Connection blocked:", originHost)
+		recordBlockedStat("TCP", originHost)
 		return nil, fmt.Errorf("blocked by policy: %s", originHost)
 	}
 
@@ -61,10 +63,12 @@ func (p *LumineProxy) DialContext(ctx context.Context, m *metadata.Metadata) (ne
 	conn, err := dialer.DialContext(ctx, "tcp", target)
 	if err != nil {
 		logger.Error("Connection failed:", err)
+		recordFailedStat("TCP", target, err.Error())
 		return nil, err
 	}
 
 	logDialPlan(logger, "TCP", plan, target)
+	recordTCPStat(target, plan.Policy.Mode.String())
 	return lumine.WrapTCPConn(conn, plan, logger), nil
 }
 
@@ -120,17 +124,21 @@ func (pc *luminePacketConn) WriteTo(b []byte, addr net.Addr) (int, error) {
 		Port:   udpAddr.Port,
 	}, pc.logger)
 	if err != nil {
+		recordFailedStat("UDP", originHost, err.Error())
 		return 0, err
 	}
 	if plan.Blocked {
+		recordBlockedStat("UDP", originHost)
 		return 0, fmt.Errorf("blocked by policy: %s", originHost)
 	}
 
 	dst, err := net.ResolveUDPAddr("udp", plan.TargetAddress())
 	if err != nil {
+		recordFailedStat("UDP", plan.TargetAddress(), err.Error())
 		return 0, err
 	}
 	logDialPlan(pc.logger, "UDP", plan, dst.String())
+	recordUDPStat(dst.String(), plan.Policy.Mode.String())
 	return pc.PacketConn.WriteTo(b, dst)
 }
 
@@ -139,6 +147,7 @@ func (pc *luminePacketConn) handleDNSQuery(payload []byte, addr *net.UDPAddr) (i
 	resp, err := lumine.HandleDNSQueryPacket(payload)
 	if err != nil {
 		pc.logger.Error("Handle hijacked DNS query:", err)
+		recordDNSStat(addr.String(), "failed", err.Error())
 		return 0, err
 	}
 
@@ -151,6 +160,7 @@ func (pc *luminePacketConn) handleDNSQuery(payload []byte, addr *net.UDPAddr) (i
 	}
 
 	pc.logger.Debug("DNS hijack resp:", summarizeDNSPacket(resp), "to", addr.String())
+	recordDNSStat(summarizeDNSPacket(payload), "ok", summarizeDNSPacket(resp))
 	return len(payload), nil
 }
 

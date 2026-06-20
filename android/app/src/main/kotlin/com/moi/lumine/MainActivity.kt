@@ -1,7 +1,10 @@
 package com.moi.lumine
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.VpnService
+import android.os.Build
 import android.os.Bundle
 import android.os.SystemClock
 import androidx.activity.ComponentActivity
@@ -21,7 +24,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -37,6 +39,7 @@ import mobile.Mobile
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        requestNotificationPermissionIfNeeded()
         WindowCompat.setDecorFitsSystemWindows(window, false)
         window.statusBarColor = android.graphics.Color.TRANSPARENT
         window.navigationBarColor = android.graphics.Color.TRANSPARENT
@@ -49,6 +52,20 @@ class MainActivity : ComponentActivity() {
                 MainContainer()
             }
         }
+    }
+
+    private fun requestNotificationPermissionIfNeeded() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+            return
+        }
+        if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) {
+            return
+        }
+        requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), REQUEST_POST_NOTIFICATIONS)
+    }
+
+    companion object {
+        private const val REQUEST_POST_NOTIFICATIONS = 1001
     }
 }
 
@@ -73,10 +90,7 @@ fun MainContainer() {
     ) { result ->
         if (result.resultCode == ComponentActivity.RESULT_OK) {
             VpnRuntimeState.setStatus("starting", "权限已授予，正在启动服务")
-            val intent = Intent(context, LumineVpnService::class.java).apply {
-                putExtra("CONFIG_NAME", viewModel.selectedConfigName.value)
-            }
-            ContextCompat.startForegroundService(context, intent)
+            VpnServiceController.start(context, viewModel.selectedConfigName.value)
         } else {
             VpnRuntimeState.setStatus("idle", "VPN 权限未授予")
             toggleLocked = false
@@ -96,10 +110,7 @@ fun MainContainer() {
             vpnRequestLauncher.launch(vpnIntent)
         } else {
             VpnRuntimeState.setStatus("starting", "正在启动服务")
-            val intent = Intent(context, LumineVpnService::class.java).apply {
-                putExtra("CONFIG_NAME", viewModel.selectedConfigName.value)
-            }
-            ContextCompat.startForegroundService(context, intent)
+            VpnServiceController.start(context, viewModel.selectedConfigName.value)
         }
     }
 
@@ -111,11 +122,8 @@ fun MainContainer() {
         toggleLocked = true
         lastToggleAt = now
         VpnRuntimeState.setStatus("stopping", "正在停止代理")
-        val intent = Intent(context, LumineVpnService::class.java).apply {
-            action = "STOP"
-        }
         runCatching {
-            context.startService(intent)
+            VpnServiceController.stop(context)
         }.onFailure {
             VpnRuntimeState.setStatus("error", "停止服务失败")
             toggleLocked = false
@@ -148,7 +156,9 @@ fun MainContainer() {
                 RuleEditorScreen(navController, viewModel, type)
             }
             composable(Screen.Settings.route) { GlobalSettingsScreen(navController, viewModel) }
+            composable(Screen.AppProxy.route) { AppProxyScreen(navController, viewModel) }
             composable(Screen.Logs.route) { LogScreen(navController, viewModel) }
+            composable(Screen.Stats.route) { StatsScreen(navController, viewModel) }
         }
     }
 }

@@ -2,7 +2,10 @@ package com.moi.lumine.repository
 
 import android.content.Context
 import android.net.Uri
+import android.content.pm.ApplicationInfo
 import androidx.core.content.FileProvider
+import com.moi.lumine.model.AppProxyMode
+import com.moi.lumine.model.InstalledAppInfo
 import com.moi.lumine.VpnStatus
 import com.moi.lumine.model.LumineConfig
 import com.moi.lumine.model.SubscriptionProfile
@@ -116,6 +119,44 @@ class ConfigRepository(private val context: Context) {
     fun getLastRunningConfigName(): String {
         return prefs.getString(KEY_LAST_RUNNING_CONFIG, getSelectedConfigName())
             ?: getSelectedConfigName()
+    }
+
+    fun getAppProxyMode(): AppProxyMode {
+        val raw = prefs.getString(KEY_APP_PROXY_MODE, AppProxyMode.All.name)
+        return runCatching { AppProxyMode.valueOf(raw ?: AppProxyMode.All.name) }
+            .getOrDefault(AppProxyMode.All)
+    }
+
+    fun setAppProxyMode(mode: AppProxyMode) {
+        prefs.edit().putString(KEY_APP_PROXY_MODE, mode.name).apply()
+    }
+
+    fun getSelectedAppPackages(): Set<String> {
+        return prefs.getStringSet(KEY_APP_PROXY_PACKAGES, emptySet()).orEmpty()
+    }
+
+    fun setSelectedAppPackages(packages: Set<String>) {
+        prefs.edit().putStringSet(KEY_APP_PROXY_PACKAGES, packages).apply()
+    }
+
+    suspend fun loadInstalledApps(): List<InstalledAppInfo> = withContext(Dispatchers.IO) {
+        val packageManager = context.packageManager
+        packageManager.getInstalledApplications(0)
+            .asSequence()
+            .filter { app -> app.packageName != context.packageName }
+            .filter { app ->
+                (app.flags and ApplicationInfo.FLAG_SYSTEM) == 0 ||
+                    packageManager.getLaunchIntentForPackage(app.packageName) != null
+            }
+            .map { app ->
+                InstalledAppInfo(
+                    packageName = app.packageName,
+                    label = app.loadLabel(packageManager).toString()
+                )
+            }
+            .sortedWith(compareBy<InstalledAppInfo> { it.label.lowercase(Locale.getDefault()) }
+                .thenBy { it.packageName })
+            .toList()
     }
 
     suspend fun loadSubscriptions(): List<SubscriptionProfile> = withContext(Dispatchers.IO) {
@@ -266,6 +307,8 @@ class ConfigRepository(private val context: Context) {
         private const val KEY_SUBSCRIPTIONS = "subscriptions_json"
         private const val KEY_VPN_SHOULD_RUN = "vpn_should_run"
         private const val KEY_LAST_RUNNING_CONFIG = "last_running_config_name"
+        private const val KEY_APP_PROXY_MODE = "app_proxy_mode"
+        private const val KEY_APP_PROXY_PACKAGES = "app_proxy_packages"
     }
 }
 

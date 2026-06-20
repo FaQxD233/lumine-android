@@ -14,7 +14,6 @@ import (
 	"github.com/xjasonlyu/tun2socks/v2/engine"
 )
 
-
 var (
 	workingDir string
 	mu         sync.Mutex
@@ -66,8 +65,6 @@ func clearLogsLocked() {
 	logEntries = nil
 }
 
-
-
 // SetWorkingDir 设置核心运行的基础路径（由 Android 端提供私有目录路径）
 func SetWorkingDir(dir string) {
 	mu.Lock()
@@ -90,13 +87,13 @@ func StartLumine(fd int, configName string) string {
 	logMu.Lock()
 	clearLogsLocked()
 	logMu.Unlock()
+	resetStats()
 
 	// Initialize logging redirection
 	mainLogger.Info("Lumine mobile starting...")
 	lumine.SetLogWriter(&LogWriter{})
 
 	configPath := filepath.Join(workingDir, configName+".json")
-
 
 	_, _, err := lumine.LoadConfig(configPath)
 	if err != nil {

@@ -32,10 +32,12 @@ This is the intended tradeoff: original core first, Android support second.
 
 ```powershell
 cd E:\testcode1\lumine\lumine-for-android-original
-.\scripts\gomobile-bind.ps1 -AndroidHome D:\Android\Sdk -JavaHome D:\Android\jbr -Output android\app\libs\LumineCore.aar
+$env:ANDROID_HOME = "C:\Android\Sdk"
+$env:JAVA_HOME = "C:\Program Files\Eclipse Adoptium\jdk-17"
+.\scripts\gomobile-bind.ps1 -Output android\app\libs\LumineCore.aar
 ```
 
-Adjust SDK/JBR paths for your machine.
+Alternatively pass `-AndroidHome` and `-JavaHome` explicitly.
 
 ## Build APK
 

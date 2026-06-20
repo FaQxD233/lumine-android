@@ -174,8 +174,13 @@ class LumineVpnService : VpnService() {
                     }
                 } catch (e: Exception) {
                     Log.e("LumineVpn", "Failed to initialize Go core", e)
+                    val errorMessage = e.message
+                        ?.takeIf { it.isNotBlank() }
+                        ?.let { "核心初始化失败: ${it.take(160)}" }
+                        ?: "核心初始化失败"
+                    updateNotification(errorMessage)
                     VpnRuntimeState.setActive(false)
-                    VpnRuntimeState.setStatus("error", "核心初始化失败")
+                    VpnRuntimeState.setStatus("error", errorMessage)
                     repository.setVpnShouldRun(false)
                     LumineRecoveryScheduler.cancel(applicationContext)
                     stopVpn()

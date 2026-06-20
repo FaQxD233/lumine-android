@@ -58,6 +58,39 @@ func TestLoadConfigResetsDerivedGlobalState(t *testing.T) {
 	}
 }
 
+func TestLoadConfigCleansPartialStateOnError(t *testing.T) {
+	dir := t.TempDir()
+	valid := filepath.Join(dir, "valid.json")
+	invalid := filepath.Join(dir, "invalid.json")
+
+	writeTestConfig(t, valid, `{
+		"dns_addr": "1.1.1.1:53",
+		"dns_cache_ttl": 60,
+		"dns_cache_cap": 16
+	}`)
+	writeTestConfig(t, invalid, `{
+		"dns_addr": "9.9.9.9:53",
+		"dns_singleflight": true,
+		"dns_cache_ttl": 60,
+		"dns_cache_cap": 0
+	}`)
+
+	if _, _, err := LoadConfig(valid); err != nil {
+		t.Fatalf("load valid config: %v", err)
+	}
+	if dnsCache == nil {
+		t.Fatalf("test setup did not create DNS cache")
+	}
+
+	if _, _, err := LoadConfig(invalid); err == nil {
+		t.Fatalf("load invalid config unexpectedly succeeded")
+	}
+
+	if dnsAddr != "" || dnsSingleflight != nil || dnsCache != nil {
+		t.Fatalf("partial DNS state leaked after failed load: addr=%q singleflight=%v cache=%v", dnsAddr, dnsSingleflight, dnsCache)
+	}
+}
+
 func writeTestConfig(t *testing.T, path string, body string) {
 	t.Helper()
 	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {

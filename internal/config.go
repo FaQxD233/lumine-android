@@ -85,7 +85,7 @@ func resetConfigState() {
 	mobileDNSRecords.Unlock()
 }
 
-func LoadConfig(filePath string) (string, string, error) {
+func LoadConfig(filePath string) (socks5Addr string, httpAddr string, err error) {
 	file, err := os.Open(filePath)
 	if err != nil {
 		return "", "", err
@@ -99,6 +99,14 @@ func LoadConfig(filePath string) (string, string, error) {
 
 	StopIPPoolMonitors()
 	resetConfigState()
+	loaded := false
+	defer func() {
+		if loaded {
+			return
+		}
+		StopIPPoolMonitors()
+		resetConfigState()
+	}()
 
 	if err := dial.SetLocalAddr(conf.OutboundBinding); err != nil {
 		return "", "", err
@@ -239,5 +247,6 @@ func LoadConfig(filePath string) (string, string, error) {
 		}
 	}
 
+	loaded = true
 	return conf.Socks5Addr, conf.HttpAddr, nil
 }

@@ -182,7 +182,11 @@ class ConfigRepository(private val context: Context) {
         onStatus: (DownloadStatus) -> Unit = {}
     ): LumineConfig = withContext(Dispatchers.IO) {
         onStatus(DownloadStatus(DownloadPhase.Connecting))
-        val connection = (URL(url).openConnection() as HttpURLConnection).apply {
+        val parsedUrl = URL(url)
+        if (parsedUrl.protocol != "http" && parsedUrl.protocol != "https") {
+            throw IllegalArgumentException("订阅链接只支持 HTTP/HTTPS")
+        }
+        val connection = (parsedUrl.openConnection() as HttpURLConnection).apply {
             connectTimeout = 15000
             readTimeout = 20000
             instanceFollowRedirects = true
@@ -200,6 +204,9 @@ class ConfigRepository(private val context: Context) {
             }
 
             val totalBytes = connection.contentLengthLong.takeIf { it > 0L }
+            if (totalBytes != null && totalBytes > MAX_SUBSCRIPTION_BYTES) {
+                throw IllegalStateException("订阅内容过大，最大支持 ${MAX_SUBSCRIPTION_MB} MB")
+            }
             val output = ByteArrayOutputStream()
             stream?.use { input ->
                 val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
@@ -211,6 +218,9 @@ class ConfigRepository(private val context: Context) {
                     }
                     output.write(buffer, 0, count)
                     downloadedBytes += count
+                    if (downloadedBytes > MAX_SUBSCRIPTION_BYTES) {
+                        throw IllegalStateException("订阅内容过大，最大支持 ${MAX_SUBSCRIPTION_MB} MB")
+                    }
                     onStatus(
                         DownloadStatus(
                             phase = DownloadPhase.Downloading,
@@ -309,6 +319,8 @@ class ConfigRepository(private val context: Context) {
         private const val KEY_LAST_RUNNING_CONFIG = "last_running_config_name"
         private const val KEY_APP_PROXY_MODE = "app_proxy_mode"
         private const val KEY_APP_PROXY_PACKAGES = "app_proxy_packages"
+        private const val MAX_SUBSCRIPTION_MB = 16
+        private const val MAX_SUBSCRIPTION_BYTES = MAX_SUBSCRIPTION_MB * 1024L * 1024L
     }
 }
 

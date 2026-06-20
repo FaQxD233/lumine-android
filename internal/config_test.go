@@ -108,6 +108,13 @@ func TestValidateConfigJSONRejectsCoreInvalidValues(t *testing.T) {
 	}
 }
 
+func TestValidateConfigJSONAcceptsConstantTTLRule(t *testing.T) {
+	body := []byte(`{"dns_addr":"1.1.1.1:53","fake_ttl_rules":"3"}`)
+	if err := ValidateConfigJSON(body); err != nil {
+		t.Fatalf("ValidateConfigJSON rejected constant TTL rule: %v", err)
+	}
+}
+
 func TestValidateConfigJSONAcceptsDefaultConfig(t *testing.T) {
 	body, err := os.ReadFile(filepath.Join("..", "config.json"))
 	if err != nil {

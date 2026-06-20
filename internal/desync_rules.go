@@ -33,6 +33,9 @@ func parseTTLRules(conf string) ([]rule, error) {
 		}
 
 		if i >= len(b) {
+			if len(rules) == 0 {
+				return nil, nil
+			}
 			return nil, errors.New("invalid rule: missing operator")
 		}
 		op := b[i] // '-' or '='

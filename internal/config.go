@@ -24,6 +24,8 @@ import (
 
 const Version = "v0.9.0"
 
+const defaultDNSTimeout = 10 * time.Second
+
 type Config struct {
 	LogLevel          string             `json:"log_level"`
 	TransmitFileLimit int                `json:"transmit_file_limit"`
@@ -278,11 +280,14 @@ func LoadConfig(filePath string) (socks5Addr string, httpAddr string, err error)
 		}
 		transport = transport.Clone()
 		transport.DialContext = dialContext
-		httpCli = &http.Client{Transport: transport}
+		httpCli = &http.Client{
+			Transport: transport,
+			Timeout:   defaultDNSTimeout,
+		}
 		dnsExchange = dohExchange
 	} else {
 		dnsExchange = do53Exchange
-		dnsClient = new(dns.Client)
+		dnsClient = &dns.Client{Timeout: defaultDNSTimeout}
 		if conf.UDPSize > 0 {
 			dnsClient.UDPSize = conf.UDPSize
 		}

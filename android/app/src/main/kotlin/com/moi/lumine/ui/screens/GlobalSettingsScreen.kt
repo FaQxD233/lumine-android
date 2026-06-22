@@ -70,6 +70,9 @@ fun GlobalSettingsScreen(navController: NavController, viewModel: ConfigViewMode
                         )
                         viewModel.updateConfig(updatedConfig)
                         viewModel.saveConfig()
+                        coroutineScope.launch {
+                            snackbarHostState.showSnackbar("已保存，重启 VPN 后生效")
+                        }
                     }) {
                         Icon(Icons.Default.Save, contentDescription = "Save")
                     }

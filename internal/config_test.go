@@ -112,6 +112,39 @@ func TestLoadConfigAppliesDefaultPolicyRuntimeDefaults(t *testing.T) {
 	}
 }
 
+func TestLoadConfigSetsDNSTimeouts(t *testing.T) {
+	dir := t.TempDir()
+	udpConfig := filepath.Join(dir, "udp.json")
+	dohConfig := filepath.Join(dir, "doh.json")
+
+	writeTestConfig(t, udpConfig, `{
+		"dns_addr": "1.1.1.1:53"
+	}`)
+	writeTestConfig(t, dohConfig, `{
+		"dns_addr": "https://dns.example/dns-query"
+	}`)
+
+	if _, _, err := LoadConfig(udpConfig); err != nil {
+		t.Fatalf("load udp config: %v", err)
+	}
+	if dnsClient == nil {
+		t.Fatalf("dns client was not initialized")
+	}
+	if dnsClient.Timeout != defaultDNSTimeout {
+		t.Fatalf("dns client timeout = %v, want %v", dnsClient.Timeout, defaultDNSTimeout)
+	}
+
+	if _, _, err := LoadConfig(dohConfig); err != nil {
+		t.Fatalf("load doh config: %v", err)
+	}
+	if httpCli == nil {
+		t.Fatalf("http client was not initialized")
+	}
+	if httpCli.Timeout != defaultDNSTimeout {
+		t.Fatalf("http client timeout = %v, want %v", httpCli.Timeout, defaultDNSTimeout)
+	}
+}
+
 func TestValidateConfigJSONRejectsCoreInvalidValues(t *testing.T) {
 	cases := map[string]string{
 		"bad log level":   `{"log_level":"WARN","dns_addr":"1.1.1.1:53"}`,

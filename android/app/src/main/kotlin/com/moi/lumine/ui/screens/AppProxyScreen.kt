@@ -32,6 +32,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -56,6 +57,7 @@ fun AppProxyScreen(navController: NavController, viewModel: ConfigViewModel) {
     val installedApps by viewModel.installedApps.collectAsState()
     val isLoading by viewModel.isLoadingInstalledApps.collectAsState()
     var query by remember { mutableStateOf("") }
+    var showSelectedOnly by remember { mutableStateOf(false) }
 
     val filteredApps = remember(installedApps, query) {
         val needle = query.trim().lowercase()
@@ -67,7 +69,16 @@ fun AppProxyScreen(navController: NavController, viewModel: ConfigViewModel) {
                     it.packageName.lowercase().contains(needle)
             }
         }
+    }.let { apps ->
+        remember(apps, selectedPackages, showSelectedOnly) {
+            if (showSelectedOnly) {
+                apps.filter { it.packageName in selectedPackages }
+            } else {
+                apps
+            }
+        }
     }
+    val visiblePackages = remember(filteredApps) { filteredApps.map { it.packageName }.toSet() }
 
     Scaffold(
         topBar = {
@@ -111,6 +122,21 @@ fun AppProxyScreen(navController: NavController, viewModel: ConfigViewModel) {
                 )
             }
 
+            item {
+                AppProxyBulkActions(
+                    visibleCount = filteredApps.size,
+                    selectedCount = selectedPackages.size,
+                    showSelectedOnly = showSelectedOnly,
+                    onToggleSelectedOnly = { showSelectedOnly = !showSelectedOnly },
+                    onSelectVisible = {
+                        viewModel.setSelectedAppPackages(selectedPackages + visiblePackages)
+                    },
+                    onClearSelected = {
+                        viewModel.setSelectedAppPackages(emptySet())
+                    }
+                )
+            }
+
             if (isLoading) {
                 item {
                     Row(
@@ -130,6 +156,49 @@ fun AppProxyScreen(navController: NavController, viewModel: ConfigViewModel) {
                     selected = app.packageName in selectedPackages,
                     onToggle = { viewModel.toggleAppPackage(app.packageName) }
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun AppProxyBulkActions(
+    visibleCount: Int,
+    selectedCount: Int,
+    showSelectedOnly: Boolean,
+    onToggleSelectedOnly: () -> Unit,
+    onSelectVisible: () -> Unit,
+    onClearSelected: () -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                "显示 $visibleCount 个应用",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            FilterChip(
+                selected = showSelectedOnly,
+                onClick = onToggleSelectedOnly,
+                label = { Text("只看已选") }
+            )
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            TextButton(
+                onClick = onSelectVisible,
+                enabled = visibleCount > 0
+            ) {
+                Text("全选结果")
+            }
+            TextButton(
+                onClick = onClearSelected,
+                enabled = selectedCount > 0
+            ) {
+                Text("清空选择")
             }
         }
     }

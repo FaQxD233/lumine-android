@@ -119,9 +119,12 @@ fun HomeScreen(
                     SecondaryMenuItem(Icons.AutoMirrored.Filled.Assignment, "日志") { navController.navigate(Screen.Logs.route) },
                     SecondaryMenuItem(Icons.Default.QueryStats, "统计") { navController.navigate(Screen.Stats.route) },
                     SecondaryMenuItem(Icons.Default.Settings, "设置") { navController.navigate(Screen.Settings.route) },
-                    SecondaryMenuItem(Icons.Default.Info, "关于") { openProjectPage(context) },
                 )
             )
+        }
+
+        item {
+            ProjectFooter(onClick = { openProjectPage(context) })
         }
     }
 }
@@ -399,6 +402,22 @@ private fun statusContentTransform(): ContentTransform {
         slideInVertically(animationSpec = tween(durationMillis = duration)) { it / 3 }) togetherWith
         (fadeOut(animationSpec = tween(durationMillis = duration)) +
             slideOutVertically(animationSpec = tween(durationMillis = duration)) { -it / 4 })
+}
+
+@Composable
+private fun ProjectFooter(onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 4.dp, bottom = 12.dp),
+        horizontalArrangement = Arrangement.Center
+    ) {
+        TextButton(onClick = onClick) {
+            Icon(Icons.Default.Info, contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(modifier = Modifier.width(6.dp))
+            Text("项目主页", style = MaterialTheme.typography.labelLarge)
+        }
+    }
 }
 
 private fun openProjectPage(context: Context) {

@@ -166,6 +166,11 @@ class ConfigViewModel(application: Application) : AndroidViewModel(application) 
                 remove(packageName)
             }
         }
+        setSelectedAppPackages(updated)
+    }
+
+    fun setSelectedAppPackages(packages: Set<String>) {
+        val updated = packages.filter { it.isNotBlank() }.toSet()
         _selectedAppPackages.value = updated
         repository.setSelectedAppPackages(updated)
     }

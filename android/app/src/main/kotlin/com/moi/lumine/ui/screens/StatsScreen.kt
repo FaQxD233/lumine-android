@@ -29,6 +29,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -43,6 +44,8 @@ import com.moi.lumine.ui.ConfigViewModel
 @Composable
 fun StatsScreen(navController: NavController, viewModel: ConfigViewModel) {
     val stats by viewModel.runtimeStats.collectAsState()
+    val modeCounts = rememberModeCounts(stats.recentEvents)
+    val issueCounts = rememberIssueCounts(stats.recentEvents)
 
     Scaffold(
         topBar = {
@@ -77,6 +80,24 @@ fun StatsScreen(navController: NavController, viewModel: ConfigViewModel) {
                 }
             }
 
+            if (modeCounts.isNotEmpty()) {
+                item {
+                    DiagnosticCard(
+                        title = "模式分布",
+                        rows = modeCounts.map { "${it.key.ifBlank { "unknown" }}" to "${it.value}" }
+                    )
+                }
+            }
+
+            if (issueCounts.isNotEmpty()) {
+                item {
+                    DiagnosticCard(
+                        title = "问题目标",
+                        rows = issueCounts.map { it.key to "${it.value}" }
+                    )
+                }
+            }
+
             item {
                 Text(
                     "最近事件",
@@ -99,6 +120,35 @@ fun StatsScreen(navController: NavController, viewModel: ConfigViewModel) {
             } else {
                 items(stats.recentEvents.asReversed()) {
                     StatEventItem(it)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DiagnosticCard(title: String, rows: List<Pair<String, String>>) {
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            rows.take(6).forEach { (label, value) ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        label,
+                        modifier = Modifier.weight(1f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(value, fontWeight = FontWeight.SemiBold)
                 }
             }
         }
@@ -129,8 +179,8 @@ private fun StatCard(label: String, value: Long, icon: ImageVector, accentTint: 
 @Composable
 private fun StatEventItem(event: RuntimeStatEvent) {
     val accent = when (event.outcome) {
-        "blocked" -> Color(0xFFB86E00)
-        "failed" -> Color(0xFFB3261E)
+        "blocked" -> MaterialTheme.colorScheme.tertiary
+        "failed" -> MaterialTheme.colorScheme.error
         else -> MaterialTheme.colorScheme.primary
     }
     ListItem(
@@ -161,5 +211,29 @@ private fun RuntimeStatEvent.outcomeLabel(): String {
         "blocked" -> "已阻断"
         "failed" -> "失败"
         else -> "通过"
+    }
+}
+
+@Composable
+private fun rememberModeCounts(events: List<RuntimeStatEvent>): List<Map.Entry<String, Int>> {
+    return remember(events) {
+        events
+            .mapNotNull { it.mode }
+            .groupingBy { it }
+            .eachCount()
+            .entries
+            .sortedByDescending { it.value }
+    }
+}
+
+@Composable
+private fun rememberIssueCounts(events: List<RuntimeStatEvent>): List<Map.Entry<String, Int>> {
+    return remember(events) {
+        events
+            .filter { it.outcome == "blocked" || it.outcome == "failed" }
+            .groupingBy { it.target.ifBlank { it.type } }
+            .eachCount()
+            .entries
+            .sortedByDescending { it.value }
     }
 }

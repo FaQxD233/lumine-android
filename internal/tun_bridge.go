@@ -180,7 +180,7 @@ func (c *tunPolicyConn) handleTLSRecordLocked(record []byte) error {
 		ipv6 := isIPv6(c.plan.TargetHost)
 		ttl := p.FakeTTL
 		if ttl == 0 || ttl == unsetInt {
-			ttl, err = getFakeTTL(c.logger, &p, c.plan.TargetHost, ipv6)
+			ttl, err = getFakeTTL(c.logger, &p, c.plan.TargetAddress(), ipv6)
 			if err != nil {
 				c.logger.Error("Get fake TTL:", err)
 				return err

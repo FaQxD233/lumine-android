@@ -147,7 +147,7 @@ fun LogScreen(navController: NavController, viewModel: ConfigViewModel) {
                             Icons.Default.BugReport,
                             contentDescription = if (isLogCaptureEnabled) "停止捕捉日志" else "开始捕捉日志",
                             tint = if (isLogCaptureEnabled) {
-                                Color(0xFFB3261E)
+                                MaterialTheme.colorScheme.error
                             } else {
                                 MaterialTheme.colorScheme.onSurfaceVariant
                             }
@@ -262,7 +262,7 @@ private fun LogSummaryCard(
                         imageVector = Icons.Default.BugReport,
                         contentDescription = null,
                         tint = if (isLogCaptureEnabled) {
-                            Color(0xFFB3261E)
+                            MaterialTheme.colorScheme.error
                         } else {
                             MaterialTheme.colorScheme.onSurfaceVariant
                         }
@@ -284,9 +284,9 @@ private fun LogSummaryCard(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 SummaryChip(label = "总计 $totalCount", color = MaterialTheme.colorScheme.primaryContainer)
-                SummaryChip(label = "信息 $infoCount", color = Color(0xFFDDF4E4))
-                SummaryChip(label = "错误 $errorCount", color = Color(0xFFFFE0E0))
-                SummaryChip(label = "调试 $debugCount", color = Color(0xFFE7EAF3))
+                SummaryChip(label = "信息 $infoCount", color = MaterialTheme.colorScheme.secondaryContainer)
+                SummaryChip(label = "错误 $errorCount", color = MaterialTheme.colorScheme.errorContainer)
+                SummaryChip(label = "调试 $debugCount", color = MaterialTheme.colorScheme.surfaceVariant)
             }
         }
     }
@@ -357,7 +357,7 @@ private fun EmptyLogState(hasAnyLogs: Boolean, isRunning: Boolean) {
 
 @Composable
 private fun LogItem(log: RuntimeLogEntry) {
-    val visuals = remember(log.level) { log.level.visuals() }
+    val visuals = log.level.visuals()
     Card(
         colors = CardDefaults.cardColors(containerColor = visuals.background)
     ) {
@@ -454,11 +454,28 @@ private fun RuntimeLogLevel.label(): String {
     }
 }
 
+@Composable
 private fun RuntimeLogLevel.visuals(): LogVisuals {
     return when (this) {
-        RuntimeLogLevel.Error -> LogVisuals(Icons.Default.Warning, Color(0xFFB3261E), Color(0xFFFFF1F1))
-        RuntimeLogLevel.Debug -> LogVisuals(Icons.Default.BugReport, Color(0xFF5D6B82), Color(0xFFF3F5F8))
-        RuntimeLogLevel.Info -> LogVisuals(Icons.Default.Info, Color(0xFF17663A), Color(0xFFF1FAF4))
-        RuntimeLogLevel.Other -> LogVisuals(Icons.Default.Info, Color(0xFF355070), Color(0xFFF7F7FA))
+        RuntimeLogLevel.Error -> LogVisuals(
+            Icons.Default.Warning,
+            MaterialTheme.colorScheme.error,
+            MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.62f)
+        )
+        RuntimeLogLevel.Debug -> LogVisuals(
+            Icons.Default.BugReport,
+            MaterialTheme.colorScheme.secondary,
+            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.72f)
+        )
+        RuntimeLogLevel.Info -> LogVisuals(
+            Icons.Default.Info,
+            MaterialTheme.colorScheme.primary,
+            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.46f)
+        )
+        RuntimeLogLevel.Other -> LogVisuals(
+            Icons.Default.Info,
+            MaterialTheme.colorScheme.onSurfaceVariant,
+            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+        )
     }
 }

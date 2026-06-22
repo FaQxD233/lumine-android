@@ -307,9 +307,10 @@ func ipRedirect(logger *log.Logger, ip string) (string, *Policy, error) {
 			return "", nil, err
 		}
 	}
-	if logger != nil && ip != mapTo {
-		logger.Info("Redirect:", ip, "->", mapTo)
-	} else {
+	if ip != mapTo {
+		if logger != nil {
+			logger.Info("Redirect:", ip, "->", mapTo)
+		}
 		policy, _ = getIPPolicy(mapTo)
 	}
 	return mapTo, policy, nil

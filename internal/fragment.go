@@ -25,7 +25,7 @@ func sendRecords(conn net.Conn, clientHello []byte,
 	}
 
 	if records == 1 {
-		if oobex {
+		if oobex && len(clientHello) >= 35 {
 			if err := sendWithOOB(conn, clientHello[:15], clientHello[15]); err != nil {
 				return E.WithStr("oob 1", err)
 			}
@@ -83,7 +83,7 @@ func sendRecords(conn net.Conn, clientHello []byte,
 					if err := sendWithOOB(conn, chunk, 0x0); err != nil {
 						return E.WithStr("oob", err)
 					}
-				} else if oobex {
+				} else if oobex && len(chunk) > 0 {
 					l := len(chunk)
 					if err := sendWithOOB(conn, chunk[:l-1], chunk[l-1]); err != nil {
 						return E.WithStr("oob 1", err)
@@ -110,7 +110,7 @@ func sendRecords(conn net.Conn, clientHello []byte,
 		merged = append(merged, c...)
 	}
 
-	if oobex {
+	if oobex && len(merged) >= 35 {
 		if err := sendWithOOB(conn, merged[:15], merged[15]); err != nil {
 			return E.WithStr("oob 1", err)
 		}

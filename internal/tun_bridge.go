@@ -69,46 +69,51 @@ func (c *tunPolicyConn) Write(b []byte) (int, error) {
 	}
 
 	c.pending = append(c.pending, b...)
-	if c.tryHandlePendingLocked() {
+	handled, err := c.tryHandlePendingLocked()
+	if !handled {
 		return len(b), nil
+	}
+	if err != nil {
+		return 0, err
 	}
 	return len(b), nil
 }
 
-func (c *tunPolicyConn) tryHandlePendingLocked() bool {
+func (c *tunPolicyConn) tryHandlePendingLocked() (handled bool, err error) {
 	if len(c.pending) < 5 {
-		return false
+		return false, nil
 	}
 
 	if c.pending[0] != tlsRecordTypeHandshake || c.pending[1] != tlsMajorVersion {
 		c.handled = true
-		err := c.flushPendingLocked()
+		err = c.flushPendingLocked()
 		c.closed = err != nil
-		return true
+		return true, err
 	}
 
 	recordLen := tlsRecordHeaderLen + int(binary.BigEndian.Uint16(c.pending[3:5]))
 	if recordLen < tlsRecordHeaderLen || len(c.pending) < recordLen {
-		return false
+		return false, nil
 	}
 
 	record := append([]byte(nil), c.pending[:recordLen]...)
 	tail := append([]byte(nil), c.pending[recordLen:]...)
-	err := c.handleTLSRecordLocked(record)
+	err = c.handleTLSRecordLocked(record)
 	c.handled = true
 	c.pending = nil
 	if err != nil {
 		c.closed = true
-		return true
+		return true, err
 	}
 	if len(tail) > 0 {
 		_, err = c.Conn.Write(tail)
 		if err != nil {
 			c.logger.Error("Forward buffered tail:", err)
 			c.closed = true
+			return true, err
 		}
 	}
-	return true
+	return true, nil
 }
 
 func (c *tunPolicyConn) flushPendingLocked() error {

@@ -2,8 +2,6 @@
 
 Lumine for Android 是一个基于 Android `VpnService` 的自用代理工具，把 Android TUN 流量接入 Lumine core，并提供 Compose 图形界面管理配置、规则、日志和运行状态。
 
-本仓库保留原版 Lumine core 的主要行为，不引入 Fake IP、GFWlist 路由或 DNS 记录回放路由。
-
 ## 当前功能
 
 - Android `VpnService` 接管设备流量，并通过本地 `tun2socks` 转发到 Lumine 代理适配层。
@@ -15,18 +13,6 @@ Lumine for Android 是一个基于 Android `VpnService` 的自用代理工具，
 - Android TUN 路径下处理 IPv6 目标地址时使用带端口的规范地址格式，避免 TTL 探测遇到 IPv6 时报 `too many colons in address`。
 - 默认阻断 QUIC，减少流量绕过 TCP/TLS 策略处理的情况。
 - 提供 GitHub Actions 构建流程，可在云端生成 AAR/APK。
-
-## 重要限制
-
-原版 Lumine 是 SOCKS5/HTTP 显式代理，客户端会直接提供目标域名。
-
-Android TUN 流量通常只有目标 IP，不天然携带域名。因此本项目在不使用 Fake IP 的前提下有这些限制：
-
-- IP 策略在 TUN 场景下最可靠。
-- TLS 流量可以在首个 ClientHello 到达时读取 SNI，并据此辅助选择策略。
-- SNI 只能用于当前连接的策略判断，不会在发现 SNI 后重新连接到另一个 `host` 目标。
-- DNS 劫持只转发到配置的上游 DNS，不合成 Fake IP。
-- SOCKS5 仍以 TCP CONNECT 为主，不提供 SOCKS5 UDP ASSOCIATE。
 
 ## 构建 AAR
 
@@ -46,7 +32,7 @@ cd E:\testcode1\lumine\lumine-for-android-original\android
 .\gradlew.bat assembleDebug
 ```
 
-本地构建需要 Android SDK。没有本地 SDK 时，可以使用 GitHub Actions 构建。
+本地构建需要 Android SDK。没有本地 SDK 时，可以使用 GitHub Actions 构建。不过我没本地懒得下环境，所以全程都用的 actions，没测试过上面的编译方式。
 
 ## 测试
 

@@ -66,14 +66,14 @@ fun StatsScreen(navController: NavController, viewModel: ConfigViewModel) {
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        StatCard("TCP", stats.tcpConnections, Icons.Default.SwapHoriz, Modifier.weight(1f))
-                        StatCard("UDP", stats.udpFlows, Icons.Default.Timeline, Modifier.weight(1f))
+                        StatCard("TCP", stats.tcpConnections, Icons.Default.SwapHoriz, MaterialTheme.colorScheme.primary, Modifier.weight(1f))
+                        StatCard("UDP", stats.udpFlows, Icons.Default.Timeline, MaterialTheme.colorScheme.tertiary, Modifier.weight(1f))
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        StatCard("DNS", stats.dnsQueries, Icons.Default.Dns, Modifier.weight(1f))
-                        StatCard("阻断", stats.blockedRequests, Icons.Default.Block, Modifier.weight(1f))
+                        StatCard("DNS", stats.dnsQueries, Icons.Default.Dns, MaterialTheme.colorScheme.secondary, Modifier.weight(1f))
+                        StatCard("阻断", stats.blockedRequests, Icons.Default.Block, MaterialTheme.colorScheme.error, Modifier.weight(1f))
                     }
-                    StatCard("失败", stats.failedRequests, Icons.Default.ErrorOutline, Modifier.fillMaxWidth())
+                    StatCard("失败", stats.failedRequests, Icons.Default.ErrorOutline, MaterialTheme.colorScheme.error, Modifier.fillMaxWidth())
                 }
             }
 
@@ -106,7 +106,7 @@ fun StatsScreen(navController: NavController, viewModel: ConfigViewModel) {
 }
 
 @Composable
-private fun StatCard(label: String, value: Long, icon: ImageVector, modifier: Modifier = Modifier) {
+private fun StatCard(label: String, value: Long, icon: ImageVector, accentTint: Color, modifier: Modifier = Modifier) {
     Card(
         modifier = modifier,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
@@ -115,7 +115,7 @@ private fun StatCard(label: String, value: Long, icon: ImageVector, modifier: Mo
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+            Icon(icon, contentDescription = null, tint = accentTint)
             Text(label, style = MaterialTheme.typography.labelLarge)
             Text(
                 value.toString(),

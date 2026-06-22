@@ -49,12 +49,16 @@ class MainActivity : ComponentActivity() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
         window.statusBarColor = android.graphics.Color.TRANSPARENT
         window.navigationBarColor = android.graphics.Color.TRANSPARENT
-        WindowInsetsControllerCompat(window, window.decorView).apply {
-            isAppearanceLightStatusBars = true
-            isAppearanceLightNavigationBars = true
-        }
+        // Light/dark status bar will be driven by the composable below
         setContent {
             LumineTheme {
+                val darkTheme = androidx.compose.foundation.isSystemInDarkTheme()
+                val view = window.decorView
+                SideEffect {
+                    val insetsController = WindowInsetsControllerCompat(window, view)
+                    insetsController.isAppearanceLightStatusBars = !darkTheme
+                    insetsController.isAppearanceLightNavigationBars = !darkTheme
+                }
                 MainContainer()
             }
         }

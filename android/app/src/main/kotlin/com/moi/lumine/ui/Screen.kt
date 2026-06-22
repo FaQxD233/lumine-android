@@ -11,4 +11,5 @@ sealed class Screen(val route: String) {
     object AppProxy : Screen("app_proxy")
     object Logs : Screen("logs")
     object Stats : Screen("stats")
+    object About : Screen("about")
 }

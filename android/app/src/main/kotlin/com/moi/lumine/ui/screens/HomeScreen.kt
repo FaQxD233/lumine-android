@@ -1,8 +1,5 @@
 package com.moi.lumine.ui.screens
 
-import android.content.Context
-import android.content.Intent
-import android.net.Uri
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.animateColorAsState
@@ -37,7 +34,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -60,7 +56,6 @@ fun HomeScreen(
     val isConnected by viewModel.isVpnActive.collectAsState()
     val selectedConfig by viewModel.selectedConfigDisplayName.collectAsState()
     val vpnStatus by viewModel.vpnStatus.collectAsState()
-    val context = LocalContext.current
 
     LazyColumn(
         modifier = Modifier
@@ -119,12 +114,9 @@ fun HomeScreen(
                     SecondaryMenuItem(Icons.AutoMirrored.Filled.Assignment, "日志") { navController.navigate(Screen.Logs.route) },
                     SecondaryMenuItem(Icons.Default.QueryStats, "统计") { navController.navigate(Screen.Stats.route) },
                     SecondaryMenuItem(Icons.Default.Settings, "设置") { navController.navigate(Screen.Settings.route) },
+                    SecondaryMenuItem(Icons.Default.Info, "关于") { navController.navigate(Screen.About.route) },
                 )
             )
-        }
-
-        item {
-            ProjectFooter(onClick = { openProjectPage(context) })
         }
     }
 }
@@ -402,45 +394,4 @@ private fun statusContentTransform(): ContentTransform {
         slideInVertically(animationSpec = tween(durationMillis = duration)) { it / 3 }) togetherWith
         (fadeOut(animationSpec = tween(durationMillis = duration)) +
             slideOutVertically(animationSpec = tween(durationMillis = duration)) { -it / 4 })
-}
-
-@Composable
-private fun ProjectFooter(onClick: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 4.dp, bottom = 12.dp),
-        horizontalArrangement = Arrangement.Center
-    ) {
-        TextButton(onClick = onClick) {
-            Icon(Icons.Default.Info, contentDescription = null, modifier = Modifier.size(18.dp))
-            Spacer(modifier = Modifier.width(6.dp))
-            Text("项目主页", style = MaterialTheme.typography.labelLarge)
-        }
-    }
-}
-
-private fun openProjectPage(context: Context) {
-    val uri = Uri.parse("https://github.com/FaQxD233/lumine-android")
-    val baseIntent = Intent(Intent.ACTION_VIEW, uri).apply {
-        addCategory(Intent.CATEGORY_BROWSABLE)
-        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-    }
-    val packageManager = context.packageManager
-    val candidates = packageManager.queryIntentActivities(baseIntent, 0)
-        .map { it.activityInfo.packageName }
-        .distinct()
-        .filter { it != context.packageName }
-
-    val intent = Intent(baseIntent)
-    val resolved = baseIntent.resolveActivity(packageManager)?.packageName
-    val preferredPackage = when {
-        resolved != null && resolved != context.packageName -> resolved
-        candidates.isNotEmpty() -> candidates.first()
-        else -> null
-    }
-    if (preferredPackage != null) {
-        intent.setPackage(preferredPackage)
-    }
-    runCatching { context.startActivity(intent) }
 }

@@ -173,6 +173,7 @@ fun MainContainer() {
             composable(Screen.AppProxy.route) { AppProxyScreen(navController, viewModel) }
             composable(Screen.Logs.route) { LogScreen(navController, viewModel) }
             composable(Screen.Stats.route) { StatsScreen(navController, viewModel) }
+            composable(Screen.About.route) { AboutScreen(navController) }
         }
     }
 }

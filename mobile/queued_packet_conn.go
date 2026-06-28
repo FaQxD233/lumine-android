@@ -20,8 +20,9 @@ type queuedPacket struct {
 type queuedPacketConn struct {
 	base net.PacketConn
 
-	packets chan queuedPacket
-	closed  chan struct{}
+	packets   chan queuedPacket
+	closed    chan struct{}
+	closeOnce sync.Once
 
 	deadlineMu   sync.RWMutex
 	readDeadline time.Time
@@ -105,11 +106,7 @@ func (pc *queuedPacketConn) WriteTo(p []byte, addr net.Addr) (int, error) {
 }
 
 func (pc *queuedPacketConn) Close() error {
-	select {
-	case <-pc.closed:
-	default:
-		close(pc.closed)
-	}
+	pc.closeOnce.Do(func() { close(pc.closed) })
 	return pc.base.Close()
 }
 

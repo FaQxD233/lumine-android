@@ -27,8 +27,8 @@ import mobile.Mobile // This will be available after gomobile bind
 
 class LumineVpnService : VpnService() {
 
-    private var vpnInterface: ParcelFileDescriptor? = null
-    private var coreTunFd: Int? = null
+    @Volatile private var vpnInterface: ParcelFileDescriptor? = null
+    @Volatile private var coreTunFd: Int? = null
     private var configName: String = "config" // Default config name
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val repository by lazy { ConfigRepository(applicationContext) }

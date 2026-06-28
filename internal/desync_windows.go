@@ -54,7 +54,8 @@ func detectMinimalReachableTTL(
 				ok = true
 				break
 			}
-			if netErr := err.(*net.OpError); !netErr.Timeout() {
+			netErr, ok := err.(*net.OpError)
+			if !ok || !netErr.Timeout() {
 				return unsetInt, E.WithStr("dial "+F.Int(mid), err)
 			}
 		}
@@ -146,7 +147,7 @@ func sendWithNoise(
 		return E.WithStr("raw control", rawCtrlErr)
 	}
 	if transmitFileErr != nil && transmitFileErr != windows.ERROR_IO_PENDING {
-		return E.WithStr("call TransmitFile", err)
+		return E.WithStr("call TransmitFile", transmitFileErr)
 	}
 
 	time.Sleep(fakeSleep)
@@ -216,7 +217,7 @@ func desyncSend(
 		sockHandle = windows.Handle(fd)
 	})
 	if controlErr != nil {
-		return E.WithStr("raw control", err)
+		return E.WithStr("raw control", controlErr)
 	}
 
 	var level, opt int

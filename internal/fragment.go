@@ -88,6 +88,10 @@ func sendRecords(conn net.Conn, clientHello []byte,
 					if err := sendWithOOB(conn, chunk[:l-1], chunk[l-1]); err != nil {
 						return E.WithStr("oob 1", err)
 					}
+				} else {
+					if _, err := conn.Write(chunk); err != nil {
+						return E.WithStr("write record 1", err)
+					}
 				}
 			} else if i == 1 && oobex {
 				if err := sendWithOOB(conn, chunk, 0x0); err != nil {
